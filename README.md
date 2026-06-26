@@ -7,6 +7,7 @@ Central coordination repository for the MADRAC ecosystem.
 | Component | Description | Status |
 |-----------|-------------|--------|
 | [madrac-subs](https://github.com/madrac-code/madrac-subs) | Subtitle engine — Whisper + PySide6 | v3.0.0-rc1 |
+| [madrac-subs-web](https://github.com/madrac-code/madrac-subs-web) | Web frontend — Vercel + Supabase | v2.x |
 | [madrac-asistente](https://github.com/madrac-code/madrac-asistente) | Voice assistant — Ollama + JARVIS | v3.2.0 |
 | [madrac-dubs](https://github.com/madrac-code/madrac-dubs) | Dubbing engine — Edge TTS + Flask | v1.0-rc1 |
 | madrac-hub | Coordinator + knowledge base | Phase 0 |

@@ -14,7 +14,8 @@
 - [x] Create prompt and context templates
 - [ ] Create CONTRIBUTING.md
 - [ ] First commit + push of complete structure
-- [ ] Update README.md
+- [x] Update README.md (5 components including madrac-subs-web)
+- [x] Register all ecosystem components (ADR-005)
 
 ## What Phase 0 is NOT
 
