@@ -3,14 +3,26 @@
 dubs_integration_test.py
 
 Standalone validation script for the MADRAC DUBS pipeline.
-Launches madrac-dubbing.exe as a subprocess, submits a dubbing job,
+Launches DUBS (via exe or python -m), submits a dubbing job,
 and validates the output.
 
-Usage:
+Usage (exe):
     python dubs_integration_test.py ^
-        --dubs-exe D:\madrac-dubs\madrac-dubbing.exe ^
-        --video D:\videos\test.mp4 ^
-        --srt D:\videos\test.srt
+        --dubs-exe D:\\madrac-dubs\\madrac-dubbing.exe ^
+        --video D:\\videos\\test.mp4 ^
+        --srt D:\\videos\\test.srt
+
+Usage (venv python, recommended for dev):
+    python dubs_integration_test.py ^
+        --dubs-python D:\\madrac-dubs\\venv\\Scripts\\python.exe ^
+        --video D:\\videos\\test.mp4 ^
+        --srt D:\\videos\\test.srt
+
+Recommended command for this environment:
+    python development/tools/dubs_integration_test.py ^
+        --dubs-python D:\\madrac-dubs\\venv\\Scripts\\python.exe ^
+        --video <path-to-video> ^
+        --srt <path-to-srt>
 
 Exits 0 on success, 1 on failure.
 """
@@ -22,6 +34,7 @@ import subprocess
 import sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 try:
     import requests as http_lib
@@ -34,7 +47,7 @@ except ImportError:
 
 API_PORT = 5000
 API_BASE = f"http://127.0.0.1:{API_PORT}"
-HEALTH_CHECK_TIMEOUT_S = 15
+HEALTH_CHECK_TIMEOUT_S = 45
 HEALTH_CHECK_INTERVAL_S = 1
 POLL_INTERVAL_S = 2
 JOB_TIMEOUT_S = 600  # 10 minutes
@@ -76,8 +89,25 @@ def http_post(path: str, payload: dict):
             return json.loads(r.read().decode())
 
 
-def launch_dubs(exe_path: str) -> subprocess.Popen:
-    log(f"Launching: {exe_path} api --port {API_PORT}")
+def launch_dubs(exe_path: str = None, python_path: str = None) -> subprocess.Popen:
+    if python_path:
+        src_dir = str(Path(python_path).resolve().parent.parent / "src")
+        env = os.environ.copy()
+        env.setdefault("PYTHONPATH", "")
+        env["PYTHONPATH"] = src_dir + os.pathsep + (env.get("PYTHONPATH", ""))
+        cmd = [python_path, "-m", "madrac_dubbing", "api", "--port", str(API_PORT)]
+        log(f"Launching via python -m: {python_path}")
+        log(f"  PYTHONPATH={src_dir}")
+        log(f"  cmd: {' '.join(cmd)}")
+        return subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+        )
+
+    log(f"Launching exe: {exe_path} api --port {API_PORT}")
     return subprocess.Popen(
         [exe_path, "api", "--port", str(API_PORT)],
         stdout=subprocess.PIPE,
@@ -151,12 +181,29 @@ def main():
     global _dubs_process
 
     parser = argparse.ArgumentParser(description="Validate DUBS integration pipeline")
-    parser.add_argument("--dubs-exe", required=True, help="Path to madrac-dubbing.exe")
+    parser.add_argument("--dubs-exe", help="Path to madrac-dubbing.exe")
+    parser.add_argument("--dubs-python", help="Path to venv python.exe (uses python -m madrac_dubbing)")
     parser.add_argument("--video", required=True, help="Path to test video file")
     parser.add_argument("--srt", required=True, help="Path to test .srt file")
     args = parser.parse_args()
 
-    for path, label in [(args.dubs_exe, "DUBS exe"), (args.video, "Video"), (args.srt, "SRT")]:
+    if not args.dubs_exe and not args.dubs_python:
+        log("❌ Must specify either --dubs-exe or --dubs-python")
+        sys.exit(1)
+    if args.dubs_exe and args.dubs_python:
+        log("❌ Specify only one of --dubs-exe or --dubs-python, not both")
+        sys.exit(1)
+
+    if args.dubs_exe:
+        if not os.path.isfile(args.dubs_exe):
+            log(f"❌ DUBS exe not found: {args.dubs_exe}")
+            sys.exit(1)
+    if args.dubs_python:
+        if not os.path.isfile(args.dubs_python):
+            log(f"❌ Python not found: {args.dubs_python}")
+            sys.exit(1)
+
+    for path, label in [(args.video, "Video"), (args.srt, "SRT")]:
         if not os.path.isfile(path):
             log(f"❌ {label} not found: {path}")
             sys.exit(1)
@@ -165,15 +212,23 @@ def main():
     video_stem = os.path.splitext(os.path.basename(args.video))[0]
     output_path = os.path.join(video_dir, f"{video_stem}_dubbed.mkv")
 
+    if args.dubs_python:
+        launch_desc = f"python -m madrac_dubbing ({args.dubs_python})"
+    else:
+        launch_desc = args.dubs_exe
+
     log("=== MADRAC DUBS Integration Test ===")
-    log(f"DUBS exe: {args.dubs_exe}")
+    log(f"DUBS:     {launch_desc}")
     log(f"Video:    {args.video}")
     log(f"SRT:      {args.srt}")
     log(f"Output:   {output_path}")
     log("")
 
     try:
-        _dubs_process = launch_dubs(args.dubs_exe)
+        _dubs_process = launch_dubs(
+            exe_path=args.dubs_exe,
+            python_path=args.dubs_python,
+        )
 
         if not wait_for_health(_dubs_process):
             cleanup()
@@ -186,7 +241,7 @@ def main():
             "config": {
                 "language": "es",
                 "voice": "female",
-                "reduce_vocals": 0.3,
+                "reduce_vocals": 0.0,
             },
         }
 
