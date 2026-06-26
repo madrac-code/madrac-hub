@@ -66,12 +66,12 @@ def log(msg: str):
 def http_get(path: str):
     url = f"{API_BASE}{path}"
     if HAS_REQUESTS:
-        resp = http_lib.get(url, timeout=5)
+        resp = http_lib.get(url, timeout=15)
         resp.raise_for_status()
         return resp.json()
     else:
         req = http_lib.Request(url)
-        with http_lib.urlopen(req, timeout=5) as r:
+        with http_lib.urlopen(req, timeout=15) as r:
             return json.loads(r.read().decode())
 
 
@@ -91,7 +91,7 @@ def http_post(path: str, payload: dict):
 
 def launch_dubs(exe_path: str = None, python_path: str = None) -> subprocess.Popen:
     if python_path:
-        src_dir = str(Path(python_path).resolve().parent.parent / "src")
+        src_dir = str(Path(python_path).resolve().parent.parent.parent / "src")
         env = os.environ.copy()
         env.setdefault("PYTHONPATH", "")
         env["PYTHONPATH"] = src_dir + os.pathsep + (env.get("PYTHONPATH", ""))
