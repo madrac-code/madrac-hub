@@ -37,6 +37,18 @@ Phase 0 is complete when:
 
 ## Phase 1 — SUBS↔DUBS Integration
 
-**Status**: IN PROGRESS (Build Session 001 complete)  
-**Next**: Build Session 002 — "Dub Now" button in SUBS  
-See `development/phases/PHASE_1_SUBS_DUBS.md` for details.
+**Status**: IN PROGRESS (Build Session 002 — debugging)  
+
+### Achieved
+- "Dub Now" button in SUBS top bar, connected to DubbingManager and DubDialog
+- DUBS API runs in background thread with health check polling
+- Pipeline: extract audio → TTS (edge-tts) → Demucs stem separation → mix → mux
+- Fixed: `asyncio.ProactorEventLoop` → `WindowsSelectorEventLoopPolicy` (OSError 22 en edge-tts)
+- Fixed: `threaded=True` in Flask `app.run()` for concurrent request handling
+- End-to-end integration test passes with real video
+
+### Known Issue — Build Session 002 en progreso
+Pipeline SUBS → DUBS funciona con video sintético.  
+Falla con video real (36s, audio de habla) en el paso extracting_audio.  
+Hipótesis: torch/Demucs toma el GIL bloqueando Flask threaded.  
+Próxima sesión: diagnosticar con profiler o cambiar a waitress como WSGI server.
