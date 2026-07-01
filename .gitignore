@@ -1,0 +1,116 @@
+# ============================================================================
+# MADRAC-HUB - MONOREPO .gitignore
+# ============================================================================
+
+# Virtual Environments
+venv/
+.venv/
+ENV/
+env/
+src/madrac_subs/venv/
+src/madrac_dubbing/venv/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.vs/
+
+# Build Artifacts
+*.exe
+*.exe.manifest
+*.dll
+*.so
+*.dylib
+*.o
+
+# PyInstaller
+*.spec
+dist/
+build/
+pyinstaller_build.log
+*.spec.bak
+
+# Nuitka
+.nuitka_build/
+src/madrac_subs/__main__.dist/
+src/madrac_subs/__main__.build/
+src/madrac_dubbing/__main__.dist/
+src/madrac_dubbing/__main__.build/
+
+# Logs
+*.log
+build_errors.log
+pip_errors.log
+nuitka_build.log
+test_subs_errors.log
+test_dubs_errors.log
+
+# OS-specific
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+
+# Development
+*.tmp
+.env
+.env.local
+
+# Build intermediates
+pip-log.txt
+pip-delete-this-directory.txt
+
+# VSCode/VS files (but allow repo-specific)
+.vs/
+*.slnx
+
+# Runtime & Temp
+runtime/
+tmp/
+temp/
+cache/
+
+# Specific to components (but keep structure)
+src/madrac_subs/build/
+src/madrac_subs/dist/
+src/madrac_subs/__pycache__/
+src/madrac_dubbing/build/
+src/madrac_dubbing/dist/
+src/madrac_dubbing/__pycache__/
+
+# Component venv
+src/madrac_subs/venv/
+src/madrac_dubbing/venv/
+
+# Editor configs (local)
+.editorconfig.local
+
+# FFmpeg (si se descarga localmente)
+ffmpeg.exe
+ffprobe.exe
+
+# Audio/Video test files (opcional)
+test_*.mp4
+test_*.wav
+test_*.mkv
+

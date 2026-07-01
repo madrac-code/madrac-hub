@@ -1,0 +1,67 @@
+# ============================================================================
+# MADRAC-SUBS - Dependencias Python 3.11
+# ============================================================================
+# Versiones exactas testeadas y compatibles con Python 3.11
+# Instalación: pip install -r requirements.txt
+# ============================================================================
+
+# ============================================================================
+# GUI - Interfaz gráfica (PySide6 + Qt Designer)
+# ============================================================================
+PySide6>=6.8.0
+
+# ============================================================================
+# TRANSCRIPCIÓN - Whisper optimizado
+# ============================================================================
+faster-whisper==1.0.2
+ctranslate2==4.3.1
+ffmpeg-python==0.2.0
+
+# ============================================================================
+# TRADUCCIÓN - MarianMT offline (default)
+# ============================================================================
+# Nota: transformers, torch y sentencepiece son pesadas (~1.5GB descargadas)
+# pero necesarias para MarianMT offline
+transformers>=4.35.2,<4.40.0
+torch>=2.5.0,<3.0.0
+sentencepiece>=0.2.0
+tokenizers>=0.14.1
+numpy>=2.0.0
+sacremoses>=0.1.0
+
+# ============================================================================
+# UTILIDADES - Funciones generales
+# ============================================================================
+requests==2.31.0
+send2trash>=2.1.0
+tqdm==4.66.1
+psutil>=5.9.0
+
+# ============================================================================
+# APIs OPCIONALES - Para motores de traducción alternativos
+# ============================================================================
+# Google Generative AI (para Gemini) - opcional
+google-genai>=1.0.0
+
+# Google Cloud Translation - opcional
+# google-cloud-translate==3.13.0
+
+# ============================================================================
+# NOTIFICACIONES OPCIONALES - Sistema operativo específico
+# ============================================================================
+# Windows 10/11 Toast notifications - opcional
+# win10toast==0.41
+
+# ============================================================================
+# BUILD - PyInstaller (empaquetado a .exe)
+# ============================================================================
+pyinstaller>=6.20,<7.0.0
+
+# ============================================================================
+# DESARROLLO Y TESTING (opcional, comentar en producción)
+# ============================================================================
+pytest>=7.4.3
+pytest-cov>=4.1.0
+pytest-qt>=4.5.0
+ruff>=0.1.0
+pyright>=1.1.0
