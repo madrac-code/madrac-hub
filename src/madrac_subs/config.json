@@ -1,0 +1,92 @@
+{
+  "whisper": {
+    "modelo": "medium",
+    "task": "transcribe",
+    "detectar_idioma": true,
+    "dispositivo": "cpu",
+    "compute_type": "int8",
+    "beam_size": 5,
+    "best_of": 5,
+    "temperature": 0.0,
+    "vad_filter": true,
+    "condition_on_previous_text": true,
+    "word_timestamps": true,
+    "thread_count": 8
+  },
+  "traduccion": {
+    "habilitada": true,
+    "motor": "marianmt",
+    "idioma_destino": "es",
+    "cache_modelos": true
+  },
+  "motores_traduccion": {
+    "marianmt": {
+      "modelo": "Helsinki-NLP/opus-mt-en-es",
+      "modelo_ja_en": "Helsinki-NLP/opus-mt-ja-en",
+      "modelo_en_es": "Helsinki-NLP/opus-mt-en-es",
+      "modelo_auto": "Helsinki-NLP/opus-mt-en-es",
+      "dispositivo": "cpu",
+      "batch_size": 16,
+      "half_precision": false,
+      "max_length": 128,
+      "timeout_lote_s": 120
+    },
+    "gemini": {
+      "api_key": "",
+      "modelo": "gemini-2.0-flash"
+    },
+    "libretranslate": {
+      "url": "http://localhost:5000",
+      "api_key": "",
+      "timeout": 30
+    },
+    "google": {
+      "timeout": 30
+    }
+  },
+  "subtitulos": {
+    "max_chars_por_linea": 42,
+    "max_lineas_por_subtitulo": 2,
+    "duracion_minima_ms": 1500,
+    "duracion_maxima_ms": 7000,
+    "dividir_en_pausas_naturales": true
+  },
+  "gui": {
+    "ventana_ancho": 1000,
+    "ventana_alto": 673,
+    "tema": "dark",
+    "color_tema": "blue",
+    "notificaciones_sistema": true,
+    "ultimo_directorio": "",
+    "ventana_x": 268,
+    "ventana_y": 126,
+    "splitter_sizes": [
+      166,
+      254,
+      59
+    ],
+    "log_collapsed": false
+  },
+  "procesamiento": {
+    "procesamiento_paralelo": false,
+    "max_workers": 1,
+    "reintentos_fallidos": 3,
+    "limpiar_cache_temporal": true,
+    "preferir_subtitulos_embebidos": true,
+    "generar_txt": false
+  },
+  "directorios": {
+    "cache_modelos": ".cache/modelos",
+    "temporal": ".cache/temporal",
+    "subcarpeta_salida": ""
+  },
+  "gpu": {
+    "advertencia_thermal": true,
+    "max_utilization_percent": 85,
+    "monitoreo_activo": true
+  },
+  "idioma": "es",
+  "file_handlers": {
+    "registered": true
+  }
+}

@@ -84,14 +84,14 @@ class TestRealMuxRoundtrip:
         srt.write_text(SRT_CONTENT, encoding="utf-8")
         muxed = Path(mux_subtitles(str(synthetic_video), str(srt), language="spa"))
         assert muxed.exists()
-        assert muxed.name == synthetic_video.stem + "_muxed.mp4"
+        assert muxed.name == synthetic_video.name
 
         info = probe_media(str(muxed))
         assert info["subtitle_streams"] == 1
         assert info["subtitle_languages"] == ["spa"]
 
     def test_detect_after_mux(self, synthetic_video):
-        muxed = synthetic_video.with_name(synthetic_video.stem + "_muxed.mp4")
+        muxed = synthetic_video
         if not muxed.exists():
             pytest.skip("muxed file not found — run test_mux_adds_subtitle_stream first")
         tracks = detect_subtitles(str(muxed))
@@ -101,7 +101,7 @@ class TestRealMuxRoundtrip:
         assert subs[0]["language"] == "spa"
 
     def test_demux_roundtrip(self, synthetic_video):
-        muxed = synthetic_video.with_name(synthetic_video.stem + "_muxed.mp4")
+        muxed = synthetic_video
         if not muxed.exists():
             pytest.skip("muxed file not found")
         extracted = demux_subtitles(str(muxed), output_dir=str(muxed.parent))
@@ -113,7 +113,7 @@ class TestRealMuxRoundtrip:
         assert "Linea cinco" in content
 
     def test_strip_removes_subtitles(self, synthetic_video):
-        muxed = synthetic_video.with_name(synthetic_video.stem + "_muxed.mp4")
+        muxed = synthetic_video
         if not muxed.exists():
             pytest.skip("muxed file not found")
         cleaned = Path(strip_subtitles(str(muxed)))

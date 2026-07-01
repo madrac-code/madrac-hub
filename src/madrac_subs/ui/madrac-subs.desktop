@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=MADRAC-SUBS
+Comment=Transcriptor y traductor de subtítulos con Whisper + MarianMT
+Exec=/home/sombra/madrac-subs/venv/bin/python /home/sombra/madrac-subs/main.py
+Icon=/home/sombra/madrac-subs/ui/madrac-subs.png
+Path=/home/sombra/madrac-subs/
+Terminal=false
+Type=Application
+Categories=AudioVideo;
+StartupNotify=true

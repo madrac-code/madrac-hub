@@ -75,6 +75,18 @@ ctranslate2>=4.6.1  # Latest available
 
 ---
 
+## Related: PyAV (av) Build Failure
+
+Another issue surfaced during `pip install`:
+
+**Symptom**: `fatal error C1083: No se puede abrir el archivo incluir: 'libavutil/mathematics.h'` — PyAV fails to compile from source.
+
+**Root Cause**: `faster-whisper==1.0.2` requires `av>=11,<13`. PyAV 11-12 have no wheel for Python 3.14 on Windows; they need FFmpeg C headers to build.
+
+**Fix**: Updated `faster-whisper==1.0.2` to `>=1.2.0`. This drops the `<13` pin, allowing `av>=17` which has a `cp311-abi3-win_amd64` wheel compatible with Python 3.14+.
+
+**Lesson**: `abi3` wheels (tag `cp311-abi3-*`) work on Python 3.11+. Before pinning packages with C extensions, verify wheel availability for the target Python version.
+
 ## Decision
 
 **ACCEPT** version updates. Benefits (Python 3.14 compatibility + latest packages) outweigh risk (minor version bumps).

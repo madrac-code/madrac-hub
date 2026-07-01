@@ -1,0 +1,472 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>FormularioPrincipal</class>
+ <widget class="QWidget" name="FormularioPrincipal">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>700</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>700</width>
+    <height>500</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>Madrac-Subs  —  Audio/Video Translation</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_principal">
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <item>
+    <widget class="QGroupBox" name="group_archivos">
+     <property name="title">
+      <string>📁 Agregar Archivos</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_archivos">
+      <item>
+       <layout class="QHBoxLayout" name="horizontalLayout_botones_archivo">
+        <item>
+         <widget class="QPushButton" name="btn_examinar">
+          <property name="text">
+           <string>Examinar...</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_carpeta">
+          <property name="text">
+           <string>Agregar Carpeta</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <spacer name="horizontalSpacer_archivos">
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_ruta">
+        <property name="styleSheet">
+         <string>color: #888888; font-size: 10px;</string>
+        </property>
+        <property name="text">
+         <string>Usa los botones para agregar archivos (MP3, MP4, WAV, MKV, etc.)</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="group_config">
+     <property name="title">
+      <string>⚙️ Configuración</string>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout_config">
+      <item>
+       <widget class="QLabel" name="label_modelo">
+        <property name="text">
+         <string>Modelo Whisper:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="combo_modelo">
+        <item>
+         <property name="text">
+          <string>tiny</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>base</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>small</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>medium</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_config_1">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QLabel" name="label_idioma">
+        <property name="text">
+         <string>Traducir a:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QComboBox" name="combo_idioma">
+        <item>
+         <property name="text">
+          <string>es</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>en</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>fr</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>de</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>it</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>pt</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_config_2">
+        <property name="orientation">
+         <enum>Qt::Orientation::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="check_traduccion">
+        <property name="text">
+         <string>Traducir automáticamente</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="check_generar_txt">
+        <property name="text">
+         <string>Generar TXT (para resúmenes)</string>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="group_espacio">
+     <property name="title">
+      <string>💾 Espacio en Disco</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_espacio">
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_esp_whisper">
+        <property name="text">
+         <string>Modelos Whisper:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLabel" name="label_w_whisper">
+        <property name="styleSheet">
+         <string>font-weight: bold;</string>
+        </property>
+        <property name="text">
+         <string>—</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_esp_marian">
+        <property name="text">
+         <string>Modelos Marian:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLabel" name="label_w_marian">
+        <property name="styleSheet">
+         <string>font-weight: bold;</string>
+        </property>
+        <property name="text">
+         <string>—</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_esp_cache">
+        <property name="text">
+         <string>Caché HuggingFace:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLabel" name="label_cache_hf">
+        <property name="styleSheet">
+         <string>font-weight: bold;</string>
+        </property>
+        <property name="text">
+         <string>—</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_esp_logs">
+        <property name="text">
+         <string>Logs:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QLabel" name="label_logs">
+        <property name="styleSheet">
+         <string>font-weight: bold;</string>
+        </property>
+        <property name="text">
+         <string>—</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="label_esp_temporales">
+        <property name="text">
+         <string>Temporales:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QLabel" name="label_temporales">
+        <property name="styleSheet">
+         <string>font-weight: bold;</string>
+        </property>
+        <property name="text">
+         <string>—</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0" colspan="2">
+       <widget class="QFrame" name="separator_espacio">
+        <property name="frameShape">
+         <enum>QFrame::Shape::HLine</enum>
+        </property>
+        <property name="frameShadow">
+         <enum>QFrame::Shadow::Sunken</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0">
+       <widget class="QLabel" name="label_esp_total_texto">
+        <property name="styleSheet">
+         <string>font-weight: bold;</string>
+        </property>
+        <property name="text">
+         <string>TOTAL:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="1">
+       <widget class="QLabel" name="label_total">
+        <property name="styleSheet">
+         <string>font-weight: bold; font-size: 14px;</string>
+        </property>
+        <property name="text">
+         <string>—</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0">
+       <widget class="QPushButton" name="btn_actualizar_espacio">
+        <property name="text">
+         <string>🔄 Actualizar</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="1">
+       <widget class="QPushButton" name="btn_limpiar">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="text">
+         <string>🗑 Limpiar...</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="group_cola">
+     <property name="title">
+      <string>📋 Cola de Procesamiento</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_cola">
+      <item>
+       <widget class="QTableWidget" name="table_cola">
+        <property name="verticalScrollBarPolicy">
+         <enum>Qt::ScrollBarPolicy::ScrollBarAsNeeded</enum>
+        </property>
+        <property name="horizontalScrollBarPolicy">
+         <enum>Qt::ScrollBarPolicy::ScrollBarAlwaysOff</enum>
+        </property>
+        <property name="showGrid">
+         <bool>true</bool>
+        </property>
+        <property name="columnCount">
+         <number>2</number>
+        </property>
+        <attribute name="horizontalHeaderVisible">
+         <bool>true</bool>
+        </attribute>
+        <attribute name="horizontalHeaderCascadingSectionResizes">
+         <bool>false</bool>
+        </attribute>
+        <attribute name="horizontalHeaderMinimumSectionSize">
+         <number>249</number>
+        </attribute>
+        <attribute name="horizontalHeaderDefaultSectionSize">
+         <number>498</number>
+        </attribute>
+        <attribute name="horizontalHeaderHighlightSections">
+         <bool>true</bool>
+        </attribute>
+        <attribute name="horizontalHeaderStretchLastSection">
+         <bool>true</bool>
+        </attribute>
+        <attribute name="verticalHeaderVisible">
+         <bool>true</bool>
+        </attribute>
+        <attribute name="verticalHeaderHighlightSections">
+         <bool>true</bool>
+        </attribute>
+        <attribute name="verticalHeaderStretchLastSection">
+         <bool>false</bool>
+        </attribute>
+        <column>
+         <property name="text">
+          <string>Archivo</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Estado</string>
+         </property>
+        </column>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="group_log">
+     <property name="title">
+      <string>📝 Log de Actividad</string>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_log">
+      <item>
+       <widget class="QPlainTextEdit" name="text_log">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+        <property name="placeholderText">
+         <string>Actividad del sistema...</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_botones">
+     <item>
+      <widget class="QPushButton" name="btn_iniciar">
+       <property name="styleSheet">
+        <string>font-weight: bold; font-size: 12px;</string>
+       </property>
+       <property name="text">
+        <string>▶ Iniciar Transcripción</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_cancelar">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="text">
+        <string>⏹ Cancelar Todo</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btn_carpeta_resultados">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="text">
+        <string>📂 Abrir Carpeta Resultados</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

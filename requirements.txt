@@ -1,72 +1,44 @@
 # ============================================================================
-# MADRAC-HUB - Dependencias Python 3.14 (Integración Monorepo)
-# ============================================================================
-# Dependencias unificadas para madrac-subs + madrac-dubbing
-# Versiones compatibles testeadas en Windows 11
-# Instalación: pip install -r requirements.txt
+# MADRAC-HUB - Dependencias Python 3.14
 # ============================================================================
 
-# ============================================================================
-# GUI - Interfaz gráfica (PySide6 + Qt Designer)
-# ============================================================================
-PySide6>=6.11.0  # Updated: 6.8.0 doesn't support Python 3.14
+# GUI
+PySide6>=6.11.0
 qdarkstyle>=3.2
 QtPy>=2
-# shiboken6 es dependencia de PySide6 (auto-installed)
 
-# ============================================================================
-# SPEECH RECOGNITION - Whisper optimizado (madrac-subs)
-# ============================================================================
-faster-whisper==1.0.2
-ctranslate2>=4.6.1  # Updated: 4.3.1 no longer available, use 4.6.1+
+# SPEECH RECOGNITION
+faster-whisper>=1.2.0
+ctranslate2>=4.6.1
 ffmpeg-python==0.2.0
 
-# ============================================================================
-# SPEECH SYNTHESIS - Edge TTS (madrac-dubbing)
-# ============================================================================
+# SPEECH SYNTHESIS
 edge-tts>=6.1.12
 
-# ============================================================================
-# TRADUCCIÓN - MarianMT offline (madrac-subs)
-# ============================================================================
-# Nota: transformers y torch son pesadas (~1.5GB descargadas)
-# pero necesarias para MarianMT offline
+# TRANSLATION
 transformers>=4.35.2,<4.40.0
 torch>=2.5.0,<3.0.0
 sentencepiece>=0.2.0
 tokenizers>=0.14.1
 sacremoses>=0.1.0
-torchaudio>=0.8  # Requerido por torch
+torchaudio>=0.8
 
-# ============================================================================
-# AUDIO PROCESSING (compartido + madrac-dubbing)
-# ============================================================================
+# AUDIO
 librosa>=0.10.0
 scipy>=1.11.0
 soundfile>=0.12.1
 pyloudnorm==0.1.0
 xxhash>=3.0
-
-# ============================================================================
-# SOURCE SEPARATION - Demucs (madrac-dubbing, opcional)
-# ============================================================================
-# Sin Demucs, reduce_vocals DSP se usa como fallback
 demucs>=4.0
 
-# ============================================================================
-# NUMERICS & DATA
-# ============================================================================
+# NUMERICS
 numpy>=2.0.0
 
-# ============================================================================
-# API & WEB (madrac-dubbing)
-# ============================================================================
+# API
 Flask>=3.0.0
 waitress>=3.0.0
 
-# ============================================================================
-# UTILIDADES GENERALES
-# ============================================================================
+# UTILS
 requests>=2.31.0
 click>=8.1.3
 python-dotenv>=1.0.0
@@ -75,34 +47,15 @@ tqdm>=4.66.0
 psutil>=5.9.0
 send2trash>=2.1.0
 
-# ============================================================================
-# GOOGLE APIs (Opcional - Alternativa a offline translation)
-# ============================================================================
-# google-genai>=1.0.0  # Para Gemini (descomenta si usas)
-# google-cloud-translate>=3.13.0  # Para Google Cloud Translation
-
-# ============================================================================
-# BUILD & PACKAGING
-# ============================================================================
+# BUILD
 pyinstaller>=6.20,<7.0.0
-nuitka>=1.4.0  # Alternativa experimental a PyInstaller
-zstandard>=0.21.0  # Requerido por Nuitka
+nuitka>=1.4.0
+zstandard>=0.21.0
 
-# ============================================================================
-# TESTING & DEVELOPMENT
-# ============================================================================
+# TESTING
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
 pytest-cov>=4.1.0
 pytest-qt>=4.5.0
 ruff>=0.1.0
 pyright>=1.1.0
-
-# ============================================================================
-# Notas de compatibilidad
-# ============================================================================
-# Python 3.14: Experimental en Nuitka 4.1.3 (considera 3.13 si hay issues)
-# Windows 11: Testeado en Windows 11 (x86-64)
-# PyTorch: Incluye CPU support; GPU requiere CUDA/ROCm adicional
-# Demucs: Pesado (~2GB+), considerar desactivar si venv es limitado
-# ============================================================================
