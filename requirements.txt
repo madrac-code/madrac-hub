@@ -9,7 +9,7 @@
 # ============================================================================
 # GUI - Interfaz gráfica (PySide6 + Qt Designer)
 # ============================================================================
-PySide6>=6.8.0
+PySide6>=6.11.0  # Updated: 6.8.0 doesn't support Python 3.14
 qdarkstyle>=3.2
 QtPy>=2
 # shiboken6 es dependencia de PySide6 (auto-installed)
@@ -18,7 +18,7 @@ QtPy>=2
 # SPEECH RECOGNITION - Whisper optimizado (madrac-subs)
 # ============================================================================
 faster-whisper==1.0.2
-ctranslate2==4.3.1
+ctranslate2>=4.6.1  # Updated: 4.3.1 no longer available, use 4.6.1+
 ffmpeg-python==0.2.0
 
 # ============================================================================
