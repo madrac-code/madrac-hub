@@ -1,0 +1,1628 @@
+gui.py:
+import tkinter as tk
+from tkinter import messagebox, scrolledtext, ttk
+import json
+from datetime import datetime
+from core.utils import obtener_ruta_recurso
+
+class InterfazJarvis:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Asistente Jarvis")
+        self.root.geometry("900x650")
+        self.root.configure(bg="#1e1e1e")
+        self.estado_actual = "Iniciando..."
+        self.ultimo_comando = ""
+        self.ultima_respuesta = ""
+        self.activo = True
+        with open(obtener_ruta_recurso("config.json"), "r", encoding="utf-8") as f:
+            self.config = json.load(f)
+        self._crear_interfaz()
+
+    def _crear_interfaz(self):
+        notebook = ttk.Notebook(self.root)
+        notebook.pack(fill=tk.BOTH, expand=True, padx=0, pady=0)
+        frame_monitor = tk.Frame(notebook, bg="#1e1e1e")
+        notebook.add(frame_monitor, text="Monitor")
+        self._crear_monitor(frame_monitor)
+        frame_copiloto = tk.Frame(notebook, bg="#1e1e1e")
+        notebook.add(frame_copiloto, text="Copiloto")
+        self._crear_copiloto(frame_copiloto)
+
+    def _crear_monitor(self, pf):
+        pe = tk.Frame(pf, bg="#252525", height=80)
+        pe.pack(fill=tk.X, padx=5, pady=5)
+        tk.Label(pe, text="Estado:", font=("Segoe UI", 10, "bold"), bg="#252525", fg="#ffffff").pack(anchor=tk.W, padx=10, pady=5)
+        self.label_estado = tk.Label(pe, text=self.estado_actual, font=("Segoe UI", 12, "bold"), bg="#252525", fg="#00ff00")
+        self.label_estado.pack(anchor=tk.W, padx=20)
+        pc = tk.Frame(pf, bg="#1e1e1e")
+        pc.pack(fill=tk.X, padx=10, pady=5)
+        tk.Label(pc, text="Ultimo Comando:", font=("Segoe UI", 9, "bold"), bg="#1e1e1e", fg="#ffffff").pack(anchor=tk.W)
+        self.label_comando = tk.Label(pc, text="", font=("Segoe UI", 9), bg="#1e1e1e", fg="#cccccc", wraplength=850, justify=tk.LEFT)
+        self.label_comando.pack(anchor=tk.W, padx=10)
+        pr = tk.Frame(pf, bg="#1e1e1e")
+        pr.pack(fill=tk.X, padx=10, pady=5)
+        tk.Label(pr, text="Ultima Respuesta:", font=("Segoe UI", 9, "bold"), bg="#1e1e1e", fg="#ffffff").pack(anchor=tk.W)
+        self.label_respuesta = tk.Label(pr, text="", font=("Segoe UI", 9), bg="#1e1e1e", fg="#90ee90", wraplength=850, justify=tk.LEFT)
+        self.label_respuesta.pack(anchor=tk.W, padx=10)
+        pl = tk.Frame(pf, bg="#1e1e1e")
+        pl.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
+        tk.Label(pl, text="Log de Actividad:", font=("Segoe UI", 9, "bold"), bg="#1e1e1e", fg="#ffffff").pack(anchor=tk.W)
+        self.log_text = scrolledtext.ScrolledText(pl, height=10, font=("Consolas", 8), bg="#2d2d2d", fg="#00ff00", insertbackground="#00ff00")
+        self.log_text.pack(fill=tk.BOTH, expand=True)
+        pb = tk.Frame(pf, bg="#1e1e1e")
+        pb.pack(fill=tk.X, padx=10, pady=5)
+        self.btn_activar = tk.Button(pb, text="Desactivar", command=self.toggle_activo, font=("Segoe UI", 9), bg="#00aa00", fg="#ffffff", padx=15, pady=5)
+        self.btn_activar.pack(side=tk.LEFT, padx=5)
+        tk.Button(pb, text="Comandos", command=self.abrir_gestor, font=("Segoe UI", 9), bg="#9900cc", fg="#ffffff", padx=15, pady=5).pack(side=tk.LEFT, padx=5)
+        tk.Button(pb, text="Configurar", command=self.reiniciar_setup, font=("Segoe UI", 9), bg="#ff8800", fg="#ffffff", padx=15, pady=5).pack(side=tk.LEFT, padx=5)
+        tk.Button(pb, text="Limpiar Log", command=self.limpiar_log, font=("Segoe UI", 9), bg="#555555", fg="#ffffff", padx=15, pady=5).pack(side=tk.LEFT, padx=5)
+        tk.Button(pb, text="Cerrar", command=self.root.quit, font=("Segoe UI", 9), bg="#aa0000", fg="#ffffff", padx=15, pady=5).pack(side=tk.RIGHT, padx=5)
+
+    def _crear_copiloto(self, pf):
+        from ui.copilot import crear_panel_copilot
+        self.panel_copilot = crear_panel_copilot(pf)
+
+    def actualizar_estado(self, s): self.estado_actual = s; self.label_estado.config(text=s); self.root.update()
+    def actualizar_comando(self, c): self.ultimo_comando = c; self.label_comando.config(text=c if c else "(ninguno)"); self.root.update()
+    def actualizar_respuesta(self, r): self.ultima_respuesta = r; self.label_respuesta.config(text=r if r else "(ninguna)"); self.root.update()
+    def agregar_log(self, m): ts = datetime.now().strftime("%H:%M:%S"); self.log_text.insert(tk.END, f"[{ts}] {m}\n"); self.log_text.see(tk.END); self.root.update()
+    def limpiar_log(self): self.log_text.delete(1.0, tk.END)
+    def toggle_activo(self): self.activo = not self.activo; self.btn_activar.config(text="Desactivar" if self.activo else "Activar", bg="#00aa00" if self.activo else "#555555"); self.actualizar_estado("Escuchando..." if self.activo else "Desactivado")
+    def abrir_gestor(self):
+        from ui.commands import abrir_gestor_comandos
+        abrir_gestor_comandos(self.root)
+    def reiniciar_setup(self):
+        if messagebox.askyesno("Reconfigurar", "Esto va a reiniciar el asistente de configuración.\n¿Querés continuar?"):
+            from core import guardar_config
+            self.config["setup_completado"] = False
+            guardar_config(self.config)
+            self.agregar_log("Configuración reiniciada. Reiniciá el programa para volver al wizard.")
+            messagebox.showinfo("Listo", "Configuración reiniciada.\n\nCerrá y volvé a iniciar Jarvis para que aparezca el wizard.")
+    def mostrar(self): self.root.mainloop()
+
+def crear_gui():
+    root = tk.Tk()
+    gui = InterfazJarvis(root)
+    return gui, root
+
+__all__ = ["InterfazJarvis", "crear_gui"]
+
+
+ui/setup_wizard.py:
+import tkinter as tk
+from tkinter import ttk, messagebox
+import json
+import os
+import sys
+import threading
+from typing import Optional
+
+from core.config import cargar_config, guardar_config, logger
+from core.utils import obtener_ruta_recurso, obtener_ruta_escritura
+
+
+class SetupWizard:
+    PAD = 15
+    BG = "#1e1e1e"
+    FG = "#ffffff"
+    ACCENT = "#00ff00"
+    SECONDARY = "#252525"
+    ENTRY_BG = "#2d2d2d"
+    BTN_GREEN = "#00aa00"
+    BTN_BLUE = "#0066cc"
+    BTN_GRAY = "#555555"
+
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Jarvis - Configuración Inicial")
+        self.root.geometry("620x520")
+        self.root.configure(bg=self.BG)
+        self.root.resizable(False, False)
+
+        self.config = cargar_config()
+        self.perfil = self._cargar_perfil()
+
+        self.paso_actual = 0
+        self.pasos = [self._screen1, self._screen2, self._screen3]
+        self.titulos = ["Bienvenido", "Modelo de IA", "Audio y Voz"]
+
+        self.frame_contenido = tk.Frame(self.root, bg=self.BG)
+        self.frame_contenido.pack(fill=tk.BOTH, expand=True, padx=self.PAD, pady=self.PAD)
+
+        self._crear_barra_progreso()
+        self._render_paso()
+
+        self.root.protocol("WM_DELETE_WINDOW", self._salir)
+        self.root.mainloop()
+
+    def _cargar_perfil(self) -> dict:
+        ruta = obtener_ruta_escritura("perfiles/default.json")
+        if not os.path.exists(ruta):
+            ruta = obtener_ruta_recurso("perfiles/default.json")
+        with open(ruta, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def _guardar_perfil(self):
+        ruta = obtener_ruta_escritura("perfiles/default.json")
+        os.makedirs(os.path.dirname(ruta), exist_ok=True)
+        with open(ruta, "w", encoding="utf-8") as f:
+            json.dump(self.perfil, f, indent=2, ensure_ascii=False)
+
+    def _crear_barra_progreso(self):
+        frame = tk.Frame(self.root, bg=self.SECONDARY, height=40)
+        frame.pack(fill=tk.X)
+        self.label_paso = tk.Label(frame, text="", font=("Segoe UI", 9, "bold"),
+                                    bg=self.SECONDARY, fg=self.ACCENT)
+        self.label_paso.pack(side=tk.LEFT, padx=15, pady=8)
+        self.progress = ttk.Progressbar(frame, length=200, mode="determinate")
+        self.progress.pack(side=tk.RIGHT, padx=15, pady=8)
+
+    def _actualizar_barra(self):
+        total = len(self.pasos)
+        self.label_paso.config(text=f"Paso {self.paso_actual + 1} de {total}: {self.titulos[self.paso_actual]}")
+        self.progress["value"] = ((self.paso_actual + 1) / total) * 100
+
+    def _limpiar_contenido(self):
+        for w in self.frame_contenido.winfo_children():
+            w.destroy()
+
+    def _render_paso(self):
+        self._limpiar_contenido()
+        self._actualizar_barra()
+        self.pasos[self.paso_actual]()
+
+    # ────────────────────────────── SCREEN 1: Bienvenido ──────────────────────────────
+
+    def _screen1(self):
+        tk.Label(self.frame_contenido, text="¡Bienvenido a Jarvis!",
+                 font=("Segoe UI", 16, "bold"), bg=self.BG, fg=self.ACCENT).pack(anchor=tk.W, pady=(0, 5))
+        tk.Label(self.frame_contenido,
+                 text="Soy tu asistente de escritorio local.\n"
+                      "Vamos a configurarlo en 3 pasos simples.",
+                 font=("Segoe UI", 10), bg=self.BG, fg=self.FG, justify=tk.LEFT).pack(anchor=tk.W, pady=(0, 20))
+
+        tk.Label(self.frame_contenido, text="¿Cómo te llamás?",
+                 font=("Segoe UI", 10, "bold"), bg=self.BG, fg=self.FG).pack(anchor=tk.W)
+        self.entry_nombre = tk.Entry(self.frame_contenido, font=("Segoe UI", 11),
+                                      bg=self.ENTRY_BG, fg=self.FG, insertbackground=self.FG)
+        self.entry_nombre.pack(fill=tk.X, pady=(5, 20))
+        nombre_actual = self.perfil.get("nombre", "")
+        if nombre_actual:
+            self.entry_nombre.insert(0, nombre_actual)
+
+        tk.Label(self.frame_contenido, text="Idioma del asistente:",
+                 font=("Segoe UI", 10, "bold"), bg=self.BG, fg=self.FG).pack(anchor=tk.W)
+        self.var_idioma = tk.StringVar(value=self.config.get("audio", {}).get("idioma", "es"))
+        combo_idioma = ttk.Combobox(self.frame_contenido, textvariable=self.var_idioma,
+                                      values=["es", "en", "pt"], state="readonly", font=("Segoe UI", 10))
+        combo_idioma.pack(fill=tk.X, pady=(5, 20))
+
+        tk.Label(self.frame_contenido, text="Motor de voz (TTS):",
+                 font=("Segoe UI", 10, "bold"), bg=self.BG, fg=self.FG).pack(anchor=tk.W)
+        self.var_tts = tk.StringVar(value=self.config.get("tts", {}).get("motor", "powershell"))
+        combo_tts = ttk.Combobox(self.frame_contenido, textvariable=self.var_tts,
+                                   values=["powershell", "pyttsx3"], state="readonly", font=("Segoe UI", 10))
+        combo_tts.pack(fill=tk.X, pady=(5, 20))
+
+        self._botones_navegacion(es_primero=True)
+
+    # ────────────────────────────── SCREEN 2: Modelo IA ──────────────────────────────
+
+    def _screen2(self):
+        tk.Label(self.frame_contenido, text="Modelo de Inteligencia Artificial",
+                 font=("Segoe UI", 16, "bold"), bg=self.BG, fg=self.ACCENT).pack(anchor=tk.W, pady=(0, 5))
+        tk.Label(self.frame_contenido,
+                 text="Elegí cómo Jarvis va a procesar tus comandos.\n"
+                      "Ollama es local y gratuito. Claude/OpenAI requieren API key.",
+                 font=("Segoe UI", 10), bg=self.BG, fg=self.FG, justify=tk.LEFT).pack(anchor=tk.W, pady=(0, 20))
+
+        tk.Label(self.frame_contenido, text="Proveedor de IA:",
+                 font=("Segoe UI", 10, "bold"), bg=self.BG, fg=self.FG).pack(anchor=tk.W)
+        self.var_tipo_ia = tk.StringVar(value=self.config["modelo_ia"]["tipo"])
+        combo_ia = ttk.Combobox(self.frame_contenido, textvariable=self.var_tipo_ia,
+                                  values=["ollama", "claude", "openai"], state="readonly", font=("Segoe UI", 10))
+        combo_ia.pack(fill=tk.X, pady=(5, 10))
+        combo_ia.bind("<<ComboboxSelected>>", self._toggle_ia_opciones)
+
+        self.frame_ollama = tk.Frame(self.frame_contenido, bg=self.BG)
+        tk.Label(self.frame_ollama, text="Modelo Ollama (ej: qwen2.5:3b, llama3.2:1b):",
+                 font=("Segoe UI", 9, "bold"), bg=self.BG, fg=self.FG).pack(anchor=tk.W)
+        self.entry_ollama_modelo = tk.Entry(self.frame_ollama, font=("Segoe UI", 10),
+                                              bg=self.ENTRY_BG, fg=self.FG, insertbackground=self.FG)
+        self.entry_ollama_modelo.pack(fill=tk.X, pady=(5, 10))
+        self.entry_ollama_modelo.insert(0, self.config["modelo_ia"]["opciones"]["ollama"]["modelo"])
+        self.btn_verificar = tk.Button(self.frame_ollama, text="Verificar Ollama",
+                                        command=self._verificar_ollama,
+                                        font=("Segoe UI", 9), bg=self.BTN_BLUE, fg=self.FG,
+                                        padx=10, pady=4)
+        self.btn_verificar.pack(anchor=tk.W)
+        self.label_ollama_status = tk.Label(self.frame_ollama, text="",
+                                              font=("Segoe UI", 9), bg=self.BG, fg=self.FG)
+        self.label_ollama_status.pack(anchor=tk.W, pady=(5, 0))
+
+        self.frame_cloud = tk.Frame(self.frame_contenido, bg=self.BG)
+        tk.Label(self.frame_cloud, text="API Key:",
+                 font=("Segoe UI", 9, "bold"), bg=self.BG, fg=self.FG).pack(anchor=tk.W)
+        self.entry_api_key = tk.Entry(self.frame_cloud, font=("Segoe UI", 10),
+                                        bg=self.ENTRY_BG, fg=self.FG, insertbackground=self.FG, show="*")
+        self.entry_api_key.pack(fill=tk.X, pady=(5, 10))
+
+        self._toggle_ia_opciones()
+        self._botones_navegacion()
+
+    def _toggle_ia_opciones(self, event=None):
+        tipo = self.var_tipo_ia.get()
+        self.frame_ollama.pack_forget()
+        self.frame_cloud.pack_forget()
+        if tipo == "ollama":
+            self.frame_ollama.pack(fill=tk.X, pady=5)
+        else:
+            key_actual = self.config["modelo_ia"]["opciones"].get(tipo, {}).get("api_key", "")
+            self.entry_api_key.delete(0, tk.END)
+            self.entry_api_key.insert(0, key_actual)
+            self.frame_cloud.pack(fill=tk.X, pady=5)
+
+    def _verificar_ollama(self):
+        def check():
+            try:
+                import urllib.request
+                urllib.request.urlopen("http://127.0.0.1:11434", timeout=3)
+                self.label_ollama_status.config(text="Ollama está funcionando ✅", fg=self.ACCENT)
+            except Exception:
+                self.label_ollama_status.config(text="Ollama no responde. ¿Está instalado? ❌", fg="#ff4444")
+            self.btn_verificar.config(state=tk.NORMAL)
+        self.btn_verificar.config(state=tk.DISABLED)
+        self.label_ollama_status.config(text="Verificando...")
+        threading.Thread(target=check, daemon=True).start()
+
+    # ────────────────────────────── SCREEN 3: Audio y Voz ──────────────────────────────
+
+    def _screen3(self):
+        tk.Label(self.frame_contenido, text="Audio y Voz",
+                 font=("Segoe UI", 16, "bold"), bg=self.BG, fg=self.ACCENT).pack(anchor=tk.W, pady=(0, 5))
+        tk.Label(self.frame_contenido,
+                 text="Configurá el micrófono y la voz del asistente.",
+                 font=("Segoe UI", 10), bg=self.BG, fg=self.FG, justify=tk.LEFT).pack(anchor=tk.W, pady=(0, 20))
+
+        tk.Label(self.frame_contenido, text="Micrófono:",
+                 font=("Segoe UI", 10, "bold"), bg=self.BG, fg=self.FG).pack(anchor=tk.W)
+        self.var_mic = tk.StringVar()
+        self.combo_mic = ttk.Combobox(self.frame_contenido, textvariable=self.var_mic,
+                                        state="readonly", font=("Segoe UI", 10))
+        self.combo_mic.pack(fill=tk.X, pady=(5, 15))
+        self._listar_microfonos()
+
+        tk.Label(self.frame_contenido, text="Sensibilidad de activación (0-1):",
+                 font=("Segoe UI", 10, "bold"), bg=self.BG, fg=self.FG).pack(anchor=tk.W)
+        self.var_umbral = tk.DoubleVar(value=self.config["wakeword"]["umbral"])
+        scale = tk.Scale(self.frame_contenido, from_=0.1, to=0.8, resolution=0.05,
+                          orient=tk.HORIZONTAL, variable=self.var_umbral,
+                          bg=self.BG, fg=self.FG, highlightbackground=self.BG,
+                          troughcolor=self.ENTRY_BG, length=400)
+        scale.pack(fill=tk.X, pady=(5, 15))
+
+        tk.Label(self.frame_contenido, text="Voz del asistente:",
+                 font=("Segoe UI", 10, "bold"), bg=self.BG, fg=self.FG).pack(anchor=tk.W)
+        self.var_voz = tk.StringVar(value=self.config.get("tts", {}).get("voz", "Microsoft Helena Desktop"))
+        combo_voz = ttk.Combobox(self.frame_contenido, textvariable=self.var_voz,
+                                   values=["Microsoft Helena Desktop", "Microsoft Sabina Desktop",
+                                           "Microsoft David Desktop", "Microsoft Zira Desktop"],
+                                   state="readonly", font=("Segoe UI", 10))
+        combo_voz.pack(fill=tk.X, pady=(5, 20))
+
+        self._botones_navegacion(es_ultimo=True)
+
+    def _listar_microfonos(self):
+        opciones = ["(Predeterminado del sistema)"]
+        dispositivo_actual = self.config.get("audio", {}).get("dispositivo_mic")
+        seleccionado = 0
+        try:
+            import sounddevice as sd
+            devices = sd.query_devices()
+            for i, dev in enumerate(devices):
+                if dev["max_input_channels"] > 0:
+                    label = f"{i}: {dev['name']}"
+                    opciones.append(label)
+                    if dispositivo_actual is not None and i == dispositivo_actual:
+                        seleccionado = len(opciones) - 1
+        except Exception:
+            pass
+        self.combo_mic["values"] = opciones
+        self.combo_mic.current(seleccionado)
+
+    # ────────────────────────────── Navegación ──────────────────────────────
+
+    def _limpiar_frame_botones(self):
+        for w in self.root.pack_slaves():
+            if isinstance(w, tk.Frame) and w != self.frame_contenido:
+                pack_info = w.pack_info()
+                if pack_info.get("side") == tk.BOTTOM:
+                    w.destroy()
+
+    def _botones_navegacion(self, es_primero=False, es_ultimo=False):
+        self._limpiar_frame_botones()
+        frame = tk.Frame(self.root, bg=self.BG)
+        frame.pack(side=tk.BOTTOM, fill=tk.X, padx=self.PAD, pady=self.PAD)
+
+        if not es_primero:
+            tk.Button(frame, text="← Anterior", command=self._anterior,
+                       font=("Segoe UI", 10), bg=self.BTN_GRAY, fg=self.FG,
+                       padx=20, pady=8).pack(side=tk.LEFT, padx=5)
+
+        if es_ultimo:
+            tk.Button(frame, text="✅ Finalizar", command=self._finalizar,
+                       font=("Segoe UI", 10, "bold"), bg=self.BTN_GREEN, fg=self.FG,
+                       padx=20, pady=8).pack(side=tk.RIGHT, padx=5)
+        else:
+            tk.Button(frame, text="Siguiente →", command=self._siguiente,
+                       font=("Segoe UI", 10, "bold"), bg=self.BTN_BLUE, fg=self.FG,
+                       padx=20, pady=8).pack(side=tk.RIGHT, padx=5)
+
+        tk.Button(frame, text="Salir", command=self._salir,
+                   font=("Segoe UI", 9), bg="#aa0000", fg=self.FG,
+                   padx=15, pady=8).pack(side=tk.RIGHT, padx=5)
+
+    def _siguiente(self):
+        if self.paso_actual == 0:
+            if not self._validar_screen1():
+                return
+        elif self.paso_actual == 1:
+            if not self._validar_screen2():
+                return
+        self.paso_actual += 1
+        self._render_paso()
+
+    def _anterior(self):
+        self.paso_actual -= 1
+        self._render_paso()
+
+    def _validar_screen1(self) -> bool:
+        nombre = self.entry_nombre.get().strip()
+        if not nombre:
+            messagebox.showwarning("Falta el nombre", "Decime tu nombre para poder llamarte.")
+            self.entry_nombre.focus()
+            return False
+        self.perfil["nombre"] = nombre
+        self.config["audio"]["idioma"] = self.var_idioma.get()
+        self.config["tts"]["motor"] = self.var_tts.get()
+        return True
+
+    def _validar_screen2(self) -> bool:
+        tipo = self.var_tipo_ia.get()
+        self.config["modelo_ia"]["tipo"] = tipo
+        if tipo == "ollama":
+            modelo = self.entry_ollama_modelo.get().strip()
+            if not modelo:
+                messagebox.showwarning("Falta el modelo", "Escribí el nombre del modelo Ollama.")
+                return False
+            self.config["modelo_ia"]["opciones"]["ollama"]["modelo"] = modelo
+        else:
+            api_key = self.entry_api_key.get().strip()
+            if not api_key:
+                messagebox.showwarning("Falta API Key",
+                                        f"Necesitás una API key para usar {tipo}.\n"
+                                        "Configurala ahora o elegí Ollama.")
+                return False
+            if tipo not in self.config["modelo_ia"]["opciones"]:
+                self.config["modelo_ia"]["opciones"][tipo] = {"api_key": "", "modelo": ""}
+            self.config["modelo_ia"]["opciones"][tipo]["api_key"] = api_key
+        return True
+
+    def _finalizar(self):
+        try:
+            mic_texto = self.combo_mic.get()
+            if mic_texto and mic_texto != "(Predeterminado del sistema)":
+                try:
+                    self.config["audio"]["dispositivo_mic"] = int(mic_texto.split(":")[0])
+                except (ValueError, IndexError):
+                    self.config["audio"]["dispositivo_mic"] = None
+            else:
+                self.config["audio"]["dispositivo_mic"] = None
+
+            self.config["wakeword"]["umbral"] = round(self.var_umbral.get(), 2)
+            self.config["tts"]["voz"] = self.var_voz.get()
+
+            self.config["setup_completado"] = True
+
+            guardar_config(self.config)
+            self._guardar_perfil()
+
+            messagebox.showinfo("¡Listo!",
+                                "Configuración guardada correctamente.\n\n"
+                                "Ya podés empezar a usar Jarvis.\n"
+                                "Decí: ¡Hey Jarvis!")
+            self.root.destroy()
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo guardar la configuración:\n{e}")
+            logger.error(f"Error guardando setup: {e}")
+
+    def _salir(self):
+        if messagebox.askyesno("Salir", "¿Salir de la configuración inicial?\n"
+                                         "Podés ejecutarla después desde el menú."):
+            self.root.destroy()
+            sys.exit(0)
+
+    def _limpiar_tk(self):
+        for attr in ("var_idioma", "var_tts", "var_tipo_ia", "var_umbral", "var_mic", "var_voz"):
+            setattr(self, attr, None)
+
+
+def ejecutar_setup():
+    SetupWizard()
+
+
+if __name__ == "__main__":
+    ejecutar_setup()
+
+
+ui/copilot/__init__.py:
+# ────────────────────────────────────────────────────────────────────
+# Panel del Copiloto en GUI
+# ────────────────────────────────────────────────────────────────────
+# Interfaz de chat para comunicarse con la IA copiloto.
+# Se integra como una pestaña adicional en la GUI principal.
+# ────────────────────────────────────────────────────────────────────
+
+import tkinter as tk
+from tkinter import scrolledtext, messagebox
+import threading
+import json
+from datetime import datetime
+import system_prompt_copiloto
+import acciones_copiloto
+
+class PanelCopiloto:
+    """Panel de chat para el copiloto IA integrado en Jarvis."""
+
+    def __init__(self, parent_frame):
+        self.frame = parent_frame
+        self.historial = []
+        self._crear_interfaz()
+
+    def _crear_interfaz(self):
+        """Construye la interfaz del copiloto."""
+
+        panel_titulo = tk.Frame(self.frame, bg="#252525", height=40)
+        panel_titulo.pack(fill=tk.X, padx=0, pady=0)
+
+        tk.Label(
+            panel_titulo,
+            text="🤖 COPILOTO IA - Configuración Inteligente",
+            font=("Segoe UI", 11, "bold"),
+            bg="#252525",
+            fg="#00ff00"
+        ).pack(anchor=tk.W, padx=10, pady=8)
+
+        panel_chat = tk.Frame(self.frame, bg="#1e1e1e")
+        panel_chat.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        self.chat_text = scrolledtext.ScrolledText(
+            panel_chat,
+            font=("Consolas", 9),
+            bg="#2d2d2d",
+            fg="#ffffff",
+            insertbackground="#00ff00",
+            state=tk.DISABLED,
+            wrap=tk.WORD
+        )
+        self.chat_text.pack(fill=tk.BOTH, expand=True)
+
+        self.chat_text.tag_configure("usuario", foreground="#00ff00", font=("Consolas", 9, "bold"))
+        self.chat_text.tag_configure("copiloto", foreground="#00ddff", font=("Consolas", 9))
+        self.chat_text.tag_configure("sistema", foreground="#ffaa00", font=("Consolas", 9))
+        self.chat_text.tag_configure("error", foreground="#ff0000", font=("Consolas", 9, "bold"))
+
+        panel_entrada = tk.Frame(self.frame, bg="#1e1e1e")
+        panel_entrada.pack(fill=tk.X, padx=5, pady=5)
+
+        self.entrada_copiloto = tk.Entry(
+            panel_entrada,
+            font=("Segoe UI", 10),
+            bg="#2d2d2d",
+            fg="#ffffff",
+            insertbackground="#00ff00"
+        )
+        self.entrada_copiloto.pack(fill=tk.X, side=tk.LEFT, expand=True, padx=(0, 5))
+        self.entrada_copiloto.bind("<Return>", lambda e: self._enviar_mensaje())
+
+        tk.Button(
+            panel_entrada,
+            text="📤 ENVIAR",
+            command=self._enviar_mensaje,
+            font=("Segoe UI", 9, "bold"),
+            bg="#0066cc",
+            fg="#ffffff",
+            padx=15,
+            pady=5
+        ).pack(side=tk.LEFT, padx=2)
+
+        panel_info = tk.Frame(self.frame, bg="#252525", height=80)
+        panel_info.pack(fill=tk.X, padx=5, pady=5)
+
+        info_texto = (
+            "💡 El copiloto entiende la arquitectura de Jarvis. "
+            "Pedile que cree/edite comandos, te recomiende automatizaciones, o explique cómo funciona el sistema."
+        )
+
+        tk.Label(
+            panel_info,
+            text=info_texto,
+            font=("Segoe UI", 8),
+            bg="#252525",
+            fg="#cccccc",
+            wraplength=700,
+            justify=tk.LEFT
+        ).pack(anchor=tk.W, padx=10, pady=8)
+
+        self._agregar_mensaje_sistema("Copiloto iniciado. ¿En qué puedo ayudarte con Jarvis?")
+
+    def _agregar_mensaje_usuario(self, texto: str):
+        self.chat_text.config(state=tk.NORMAL)
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.chat_text.insert(tk.END, f"[{timestamp}] Tú: ", "usuario")
+        self.chat_text.insert(tk.END, f"{texto}\n\n")
+        self.chat_text.config(state=tk.DISABLED)
+        self.chat_text.see(tk.END)
+
+    def _agregar_mensaje_copiloto(self, texto: str):
+        self.chat_text.config(state=tk.NORMAL)
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.chat_text.insert(tk.END, f"[{timestamp}] Copiloto: ", "copiloto")
+        self.chat_text.insert(tk.END, f"{texto}\n\n")
+        self.chat_text.config(state=tk.DISABLED)
+        self.chat_text.see(tk.END)
+
+    def _agregar_mensaje_sistema(self, texto: str):
+        self.chat_text.config(state=tk.NORMAL)
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.chat_text.insert(tk.END, f"[{timestamp}] ", "sistema")
+        self.chat_text.insert(tk.END, f"{texto}\n\n", "sistema")
+        self.chat_text.config(state=tk.DISABLED)
+        self.chat_text.see(tk.END)
+
+    def _enviar_mensaje(self):
+        mensaje = self.entrada_copiloto.get().strip()
+        if not mensaje:
+            return
+        self.entrada_copiloto.delete(0, tk.END)
+        self._agregar_mensaje_usuario(mensaje)
+        thread = threading.Thread(
+            target=self._procesar_mensaje,
+            args=(mensaje,),
+            daemon=True
+        )
+        thread.start()
+
+    def _procesar_mensaje(self, mensaje: str):
+        try:
+            respuesta = self._generar_respuesta_simulada(mensaje)
+            self._agregar_mensaje_copiloto(respuesta)
+        except Exception as e:
+            error_msg = f"Error procesando tu mensaje: {e}"
+            self._agregar_mensaje_sistema(error_msg)
+
+    def _generar_respuesta_simulada(self, mensaje: str) -> str:
+        msg_lower = mensaje.lower()
+
+        if any(word in msg_lower for word in ["crear", "nuevo", "comando", "quiero"]):
+            return self._respuesta_crear_comando(mensaje)
+
+        elif any(word in msg_lower for word in ["lista", "cuales", "comandos"]):
+            return self._respuesta_listar_comandos()
+
+        elif any(word in msg_lower for word in ["ayuda", "como funciona", "explicar"]):
+            return self._respuesta_explicar_sistema()
+
+        elif any(word in msg_lower for word in ["abrí", "abrir", "ejecutar"]):
+            return self._respuesta_sugerencia_comando(mensaje)
+
+        else:
+            return (
+                "Entendí tu solicitud boludo 🤖\n\n"
+                "Para que pueda ayudarte mejor, podés:\n"
+                "• Pedirme que cree un comando nuevo\n"
+                "• Decirme qué tareas repetitivas hacés\n"
+                "• Preguntar cómo funciona algo\n\n"
+                "¿Qué te gustaría hacer?"
+            )
+
+    def _respuesta_crear_comando(self, mensaje: str) -> str:
+        return (
+            "Perfecto che! 🚀 Voy a ayudarte a crear un comando.\n\n"
+            "Para armarlo necesito saber:\n"
+            "1. ¿Qué nombre le ponemos?\n"
+            "2. ¿Qué palabras va a escuchar el asistente? (triggers)\n"
+            "3. ¿Qué queres que haga? (abrir URL/app, escribir, secuencia, etc)\n\n"
+            "Describime tu caso de uso y me encargo del resto 💪"
+        )
+
+    def _respuesta_listar_comandos(self) -> str:
+        try:
+            import comandos_usuario
+            cmds = comandos_usuario.obtener_todos_los_comandos()
+            if not cmds:
+                return "No hay comandos dinámicos aún. ¿Creamos el primero? 🆕"
+            respuesta = f"Tenés {len(cmds)} comandos creados:\n\n"
+            for cmd in cmds:
+                respuesta += f"✓ {cmd.get('nombre')} ({cmd.get('tipo')})\n"
+            respuesta += "\n¿Querés editar alguno o crear uno nuevo?"
+            return respuesta
+        except Exception as e:
+            return f"Error listando comandos: {e}"
+
+    def _respuesta_explicar_sistema(self) -> str:
+        return (
+            "Claro boludo! 🧠 Así funciona Jarvis:\n\n"
+            "1. **Asistente principal**: Escucha por voz, usa IA para entender, ejecuta acciones\n"
+            "2. **Comandos core**: 8 comandos Python nativos (música, apps, etc)\n"
+            "3. **Comandos dinámicos**: Los que TÚ creas sin tocar código (guardados en JSON)\n"
+            "4. **Yo (copiloto)**: Te ayudo a crear/editar comandos via chat\n"
+            "5. **Menú 🧩**: También podes crearlos desde la interfaz gráfica\n\n"
+            "Todo es en tiempo real - sin necesidad de reiniciar nada 🔥"
+        )
+
+    def _respuesta_sugerencia_comando(self, mensaje: str) -> str:
+        palabras = mensaje.lower().split()
+        app = None
+        for palabra in palabras:
+            if palabra in ["chrome", "firefox", "edge", "vscode", "slack", "spotify"]:
+                app = palabra
+                break
+
+        if app:
+            return (
+                f"Dale! 🎯 Te voy a crear un comando para abrir {app}.\n\n"
+                f"Si querés, puedo agregarlo ya mismo. "
+                f"¿Qué triggers te gustaría? (ej: 'abrí {app}', '{app}', 'ir a {app}')"
+            )
+        else:
+            return (
+                "Entendí que querés un comando para algo.\n\n"
+                "¿Me decís qué aplicación/URL querés abrir? "
+                "O si es algo más complejo, me lo describís y armamos un comando personalizado."
+            )
+
+def crear_panel_copilot(parent_frame) -> PanelCopiloto:
+    panel = PanelCopiloto(parent_frame)
+    return panel
+
+__all__ = ["PanelCopiloto", "crear_panel_copilot"]
+
+
+comandos/__init__.py:
+# ────────────────────────────────────────────────────────────────────
+# Módulo de Comandos del Asistente JARVIS
+# ────────────────────────────────────────────────────────────────────
+# Este paquete contiene todos los comandos disponibles del asistente.
+# Cada módulo debe exponer:
+#   - TRIGGERS: lista de palabras clave que activan el comando
+#   - ejecutar(parametro): función que ejecuta la acción
+# ────────────────────────────────────────────────────────────────────
+
+from . import musica
+from . import apps
+from . import sistema
+from . import conversar
+from . import escribir
+from . import youtube
+
+__all__ = ["musica", "apps", "sistema", "conversar", "escribir", "youtube"]
+
+
+comandos/musica.py:
+# ────────────────────────────────────────────────────────────────────
+# Comando: Musica
+# ────────────────────────────────────────────────────────────────────
+# Gestiona reproduccion de musica: busca archivos, selecciona generos,
+# y controla reproduccion mediante reproductor del sistema.
+# Mantiene un diccionario de procesos activos (pid -> nombre_proceso)
+# para poder cerrarlos todos al detener la musica.
+# ────────────────────────────────────────────────────────────────────
+
+import os
+import glob
+import random
+import subprocess
+import json
+import logging
+import time
+import winreg
+
+logger = logging.getLogger(__name__)
+
+TRIGGERS = ["poner", "reproducir", "musica", "cancion", "genero",
+            "playlist", "tema", "artista", "album"]
+
+pids_musica_activos = {}
+
+REPRODUCTORES_CONOCIDOS = [
+    "wmplayer.exe", "vlc.exe", "mpv.exe", "groove.exe",
+    "music.exe", "music.ui.exe", "microsoft.media.player.exe",
+    "windowsmediaplayer.exe", "wmplayer"
+]
+
+
+def _obtener_reproductor_defecto(extension=".mp3"):
+    try:
+        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, extension) as key:
+            tipo_archivo = winreg.QueryValue(key, "")
+        if not tipo_archivo:
+            return None, None
+        cmd_key = f"{tipo_archivo}\\shell\\open\\command"
+        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, cmd_key) as key:
+            cmdline = winreg.QueryValue(key, "")
+        import re
+        match = re.search(r'^"([^"]+\.exe)"', cmdline, re.IGNORECASE)
+        if match:
+            exe = match.group(1)
+            nombre = os.path.basename(exe).lower()
+            if os.path.isfile(exe):
+                return exe, nombre
+    except (OSError, PermissionError):
+        pass
+    return None, None
+
+
+def cargar_config():
+    from core import cargar_config as _cargar_config, cargar_perfil
+    return _cargar_config(), cargar_perfil()
+
+
+def buscar_musica(parametro):
+    config, perfil = cargar_config()
+    carpeta_musica = os.path.expanduser(config["carpetas"]["musica"])
+    extensiones = ["*.mp3", "*.flac", "*.wav", "*.ogg", "*.m4a"]
+    parametro = parametro.lower().strip()
+
+    if parametro in ["", "desconocido", "unknown", "nada", "lo que sea", "musica", "una cancion", "cualquier cosa"]:
+        parametro = ""
+
+    todos = []
+    for ext in extensiones:
+        todos += glob.glob(os.path.join(carpeta_musica, "**", ext), recursive=True)
+        todos += glob.glob(os.path.join(carpeta_musica, ext))
+
+    if not todos:
+        return None, "No encontre ningun archivo de musica en la carpeta."
+
+    for genero_alias, genero_real in perfil["generos_musica"].items():
+        if parametro.lower() == genero_alias.lower():
+            genero_path = os.path.join(carpeta_musica, genero_real)
+            if os.path.isdir(genero_path):
+                archivos_genero = []
+                for ext in extensiones:
+                    archivos_genero += glob.glob(os.path.join(genero_path, ext))
+                if archivos_genero:
+                    elegido = random.choice(archivos_genero)
+                    return elegido, "Poniendo musica de " + genero_real + "."
+
+    coincidencias = []
+    for archivo in todos:
+        nombre = os.path.splitext(os.path.basename(archivo))[0].lower()
+        if parametro in nombre:
+            coincidencias.append(archivo)
+
+    if coincidencias:
+        elegido = random.choice(coincidencias)
+        return elegido, "Poniendo " + os.path.basename(elegido) + "."
+
+    elegido = random.choice(todos)
+    return elegido, "No encontre exactamente eso, poniendo " + os.path.basename(elegido) + "."
+
+
+def _limpiar_pids_muertos():
+    muertos = []
+    for pid in pids_musica_activos:
+        try:
+            import psutil
+            if not psutil.pid_exists(pid):
+                muertos.append(pid)
+        except ImportError:
+            return
+    for pid in muertos:
+        nombre = pids_musica_activos.pop(pid, None)
+        logger.info("PID muerto eliminado de coleccion: " + str(pid) + " (" + str(nombre) + ")")
+
+
+def hay_musica_reproduciendose():
+    _limpiar_pids_muertos()
+    return len(pids_musica_activos) > 0
+
+
+def reproducir_musica(ruta_archivo):
+    global pids_musica_activos
+
+    if hay_musica_reproduciendose():
+        logger.info("Cerrando musica previa antes de abrir nueva...")
+        detener_musica()
+
+    pid_capturado = None
+    nombre_proceso = None
+
+    try:
+        player_exe, player_name = _obtener_reproductor_defecto()
+        if player_exe and player_name:
+            logger.info("Lanzando reproductor: " + player_exe)
+            proc = subprocess.Popen([player_exe, ruta_archivo], shell=False)
+            time.sleep(0.5)
+            if proc.poll() is None:
+                pid_capturado = proc.pid
+                nombre_proceso = player_name
+                logger.info("Musica reproduciendo - PID directo: " + str(pid_capturado) + " (" + player_name + ")")
+            else:
+                logger.info("Reproductor delego a instancia existente, escaneando procesos...")
+
+        if pid_capturado is None:
+            try:
+                import psutil
+                archivo_bajo = os.path.basename(ruta_archivo).lower()
+                for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                    try:
+                        cmdline = proc.info.get('cmdline')
+                        if cmdline and any(archivo_bajo in c.lower() for c in cmdline if c):
+                            nombre = proc.info['name'].lower()
+                            if any(nombre == p.lower() for p in REPRODUCTORES_CONOCIDOS):
+                                pid_capturado = proc.info['pid']
+                                nombre_proceso = proc.info['name']
+                                logger.info("Musica reproduciendo - detectado por cmdline: "
+                                            + str(pid_capturado) + " (" + nombre_proceso + ")")
+                                break
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+            except ImportError:
+                pass
+
+        if pid_capturado is None:
+            known_lower = [p.lower() for p in REPRODUCTORES_CONOCIDOS]
+            before = {}
+            try:
+                import psutil
+                for p in psutil.process_iter(['pid', 'name']):
+                    try:
+                        nombre = p.info['name'].lower()
+                        if any(nombre == k for k in known_lower):
+                            before[p.info['pid']] = p.info['name']
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+            except ImportError:
+                pass
+
+            os.startfile(ruta_archivo)
+            time.sleep(1.5)
+
+            try:
+                import psutil
+                for p in psutil.process_iter(['pid', 'name']):
+                    try:
+                        pid = p.info['pid']
+                        nombre = p.info['name']
+                        nombre_lower = nombre.lower()
+                        if pid not in before and any(nombre_lower == k for k in known_lower):
+                            pid_capturado = pid
+                            nombre_proceso = nombre
+                            logger.info("Musica reproduciendo - detectado por snapshot: "
+                                        + str(pid) + " (" + nombre + ")")
+                            break
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+            except ImportError:
+                pass
+
+        if pid_capturado is None:
+            proc = subprocess.Popen(
+                ["cmd", "/c", "start", "", ruta_archivo],
+                shell=False
+            )
+            time.sleep(0.5)
+            try:
+                import psutil
+                hijos = psutil.Process(proc.pid).children()
+                if hijos:
+                    pid_capturado = hijos[0].pid
+                    nombre_proceso = hijos[0].name()
+                    logger.info("Musica reproduciendo - PID hijo: "
+                                + str(pid_capturado) + " (" + nombre_proceso + ")")
+                else:
+                    pid_capturado = proc.pid
+                    logger.info("Musica reproduciendo - PID del shell: " + str(proc.pid))
+            except Exception as e:
+                pid_capturado = proc.pid
+                logger.warning("No se pudo detectar PID hijo: " + str(e))
+
+        if pid_capturado is not None:
+            pids_musica_activos[pid_capturado] = nombre_proceso or "desconocido"
+            logger.info("Total procesos activos: " + str(len(pids_musica_activos)))
+            return True
+
+        logger.warning("No se pudo capturar ningun PID de reproductor")
+        return True
+
+    except Exception as e:
+        logger.error("Error al reproducir musica: " + str(e))
+        return False
+
+
+def detener_musica():
+    global pids_musica_activos
+
+    _limpiar_pids_muertos()
+
+    if not pids_musica_activos:
+        return False, "No hay musica reproduciendose."
+
+    cerrados = 0
+    total = len(pids_musica_activos)
+
+    for pid, nombre_proceso in list(pids_musica_activos.items()):
+        logger.info("Deteniendo proceso " + str(pid) + " (" + str(nombre_proceso) + ")...")
+
+        if pid is not None:
+            try:
+                import psutil
+                proc = psutil.Process(pid)
+                proc.terminate()
+                proc.wait(timeout=5)
+                logger.info("Proceso detenido con psutil: " + str(pid) + " (" + str(nombre_proceso) + ")")
+                cerrados += 1
+                continue
+            except ImportError:
+                pass
+            except psutil.NoSuchProcess:
+                logger.warning("Proceso " + str(pid) + " ya no existe")
+                cerrados += 1
+                continue
+            except psutil.AccessDenied:
+                logger.warning("Acceso denegado al proceso " + str(pid))
+            except Exception as e:
+                logger.warning("Error con psutil: " + str(e))
+
+        if pid is not None:
+            try:
+                resultado = subprocess.run(
+                    ["taskkill", "/F", "/PID", str(pid)],
+                    capture_output=True, text=True, timeout=5
+                )
+                if resultado.returncode == 0:
+                    logger.info("Proceso detenido con taskkill /PID: " + str(pid))
+                    cerrados += 1
+                    continue
+            except Exception as e:
+                logger.error("Error con taskkill /PID: " + str(e))
+
+        if nombre_proceso:
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", nombre_proceso],
+                    capture_output=True, timeout=5
+                )
+                logger.info("Proceso detenido con taskkill /IM: " + nombre_proceso)
+                cerrados += 1
+                continue
+            except Exception as e:
+                logger.error("Error con taskkill /IM: " + str(e))
+
+        if nombre_proceso and nombre_proceso.lower() == "desconocido":
+            procesos_audio = ["wmplayer.exe", "vlc.exe", "mpv.exe", "musicplayer.exe"]
+            for proc_name in procesos_audio:
+                try:
+                    subprocess.run(
+                        ["taskkill", "/F", "/IM", proc_name],
+                        capture_output=True, timeout=5
+                    )
+                    cerrados += 1
+                except Exception:
+                    pass
+
+    pids_musica_activos.clear()
+
+    if cerrados > 0:
+        mensaje = "Cerre " + str(cerrados) + " proceso" + ("s" if cerrados != 1 else "") + " de musica."
+        return True, mensaje
+    else:
+        return False, "No se pudo cerrar ningun proceso de musica."
+
+
+def ejecutar(parametro):
+    if not parametro or parametro.strip() == "":
+        ruta, mensaje = buscar_musica("")
+        if ruta:
+            return reproducir_musica(ruta), mensaje
+        return False, "No tengo musica para reproducir."
+
+    ruta, mensaje = buscar_musica(parametro)
+    if ruta:
+        exito = reproducir_musica(ruta)
+        return exito, mensaje
+    else:
+        return False, mensaje
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("TESTS UNITARIOS: comandos/musica.py")
+    print("=" * 60)
+    from comandos.musica import _test_pids_activos, _test_detener_sin_musica, _test_detener_doble, _test_hay_musica_con_activos, _test_multiples_pids
+    _test_pids_activos()
+    _test_detener_sin_musica()
+    _test_detener_doble()
+    _test_hay_musica_con_activos()
+    _test_multiples_pids()
+    print()
+    print("=" * 60)
+    print("TODOS LOS TESTS PASARON")
+    print("=" * 60)
+
+__all__ = [
+    "reproducir_musica", "detener_musica", "ejecutar",
+    "hay_musica_reproduciendose", "pids_musica_activos",
+    "TRIGGERS",
+]
+
+
+comandos/apps.py:
+# ────────────────────────────────────────────────────────────────────
+# Comando: Aplicaciones
+# ────────────────────────────────────────────────────────────────────
+# Abre y cierra aplicaciones según el perfil del usuario.
+# Soporta aliases personalizados y búsqueda de ejecutables.
+# Para "música", usa el PID guardado por reproducir_musica().
+# ────────────────────────────────────────────────────────────────────
+
+import subprocess
+import json
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+
+TRIGGERS = ["abrir", "abre", "abro", "ejecutar", "ejecuta", "cerrar", "cierra", "cierro",
+            "terminar", "mata", "matar"]
+
+def cargar_config():
+    from core import cargar_config as _cargar_config, cargar_perfil
+    return _cargar_config(), cargar_perfil()
+
+def abrir_app(nombre_app):
+    config, perfil = cargar_config()
+    nombre_app = nombre_app.lower().strip()
+    ejecutable = perfil["aplicaciones"].get(nombre_app, nombre_app)
+    try:
+        subprocess.Popen(ejecutable, shell=True)
+        return True, f"Abriendo {nombre_app}."
+    except Exception as e:
+        return False, f"No pude abrir {nombre_app}: {str(e)}"
+
+def cerrar_app(nombre_app):
+    config, perfil = cargar_config()
+    nombre_app = nombre_app.lower().strip()
+
+    if nombre_app in ["música", "musica"]:
+        from comandos.musica import detener_musica
+        exito, mensaje = detener_musica()
+        if exito:
+            return True, mensaje
+
+    proceso = perfil["aplicaciones"].get(nombre_app)
+    if not proceso:
+        proceso = nombre_app
+    if proceso.endswith(".exe"):
+        proceso = proceso[:-4]
+
+    try:
+        resultado = subprocess.run(
+            ["taskkill", "/F", "/IM", f"{proceso}.exe"],
+            capture_output=True, text=True, timeout=5
+        )
+        if resultado.returncode == 0:
+            logger.info(f"Proceso {proceso}.exe cerrado exitosamente")
+            return True, f"Cerré {nombre_app}."
+        else:
+            logger.warning(f"taskkill falló para {proceso}: {resultado.stderr}")
+            return False, f"{nombre_app} no estaba abierto o no pude cerrarlo."
+    except subprocess.TimeoutExpired:
+        return False, f"Tiempo de espera agotado al cerrar {nombre_app}."
+    except Exception as e:
+        return False, f"Error al cerrar {nombre_app}: {str(e)}"
+
+def ejecutar(parametro):
+    parametro = parametro.lower().strip()
+    if not parametro:
+        return False, "Especificá qué aplicación querés abrir o cerrar."
+    return abrir_app(parametro)
+
+__all__ = ["abrir_app", "cerrar_app", "ejecutar", "TRIGGERS"]
+
+
+comandos/sistema.py:
+# ────────────────────────────────────────────────────────────────────
+# Comando: Sistema
+# ────────────────────────────────────────────────────────────────────
+# Controla funciones del sistema: volumen, hora, fecha, apagado,
+# captura de pantalla y análisis visual.
+# ────────────────────────────────────────────────────────────────────
+
+import subprocess
+import json
+from datetime import datetime
+import os
+
+TRIGGERS = ["volumen", "hora", "fecha", "apagar", "restart", "reiniciar", "screenshot",
+            "pantalla", "describir", "imagen", "captura"]
+
+def cargar_config():
+    from core import cargar_config as _cargar_config
+    return _cargar_config()
+
+def obtener_hora():
+    ahora = datetime.now()
+    hora_str = ahora.strftime("%H:%M")
+    return True, f"Son las {hora_str}."
+
+def obtener_fecha():
+    ahora = datetime.now()
+    dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+    meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
+             "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+    dia_semana = dias[ahora.weekday()]
+    dia = ahora.day
+    mes = meses[ahora.month - 1]
+    anio = ahora.year
+    fecha_str = f"{dia_semana.capitalize()} {dia} de {mes} de {anio}"
+    return True, f"Hoy es {fecha_str}."
+
+def _volumen_pycaw(accion, valor=None):
+    from pycaw.pycaw import AudioUtilities
+    devices = AudioUtilities.GetSpeakers()
+    volume = devices.EndpointVolume
+
+    if accion == "obtener":
+        current = int(volume.GetMasterVolumeLevelScalar() * 100)
+        mute = volume.GetMute()
+        estado = "silenciado" if mute else f"al {current}%"
+        return True, f"Volumen {estado}."
+    elif accion == "subir":
+        v = min(1.0, volume.GetMasterVolumeLevelScalar() + 0.1)
+        volume.SetMasterVolumeLevelScalar(v, None)
+        volume.SetMute(0, None)
+        return True, f"Volumen al {int(v * 100)}%."
+    elif accion == "bajar":
+        v = max(0.0, volume.GetMasterVolumeLevelScalar() - 0.1)
+        volume.SetMasterVolumeLevelScalar(v, None)
+        return True, f"Volumen al {int(v * 100)}%."
+    elif accion == "silencio":
+        volume.SetMute(1, None)
+        return True, "Sistema en silencio."
+    elif accion == "sonido":
+        volume.SetMute(0, None)
+        return True, "Sonido activado."
+    elif accion == "establecer":
+        try:
+            v = max(0, min(100, int(valor))) / 100.0
+            volume.SetMasterVolumeLevelScalar(v, None)
+            volume.SetMute(0, None)
+            return True, f"Volumen al {int(v * 100)}%."
+        except (ValueError, TypeError):
+            return False, "Decí un número del 0 al 100."
+    return False, "Acción no reconocida."
+
+def _volumen_nircmd(accion, valor=None):
+    try:
+        if accion == "subir":
+            subprocess.run(["nircmd", "changesysvolume", "5000"], capture_output=True)
+            return True, "Subí el volumen."
+        elif accion == "bajar":
+            subprocess.run(["nircmd", "changesysvolume", "-5000"], capture_output=True)
+            return True, "Bajé el volumen."
+        elif accion == "silencio":
+            subprocess.run(["nircmd", "mutesysvolume", "1"], capture_output=True)
+            return True, "Sistema en silencio."
+        elif accion == "sonido":
+            subprocess.run(["nircmd", "mutesysvolume", "0"], capture_output=True)
+            return True, "Sonido activado."
+        else:
+            return False, "Acción de volumen no reconocida."
+    except FileNotFoundError:
+        return False, "nircmd no está instalado."
+    except Exception as e:
+        return False, f"Error: {str(e)}"
+
+def controlar_volumen(accion, valor=None):
+    try:
+        return _volumen_pycaw(accion, valor)
+    except Exception:
+        return _volumen_nircmd(accion, valor)
+
+def apagar_sistema(modo="apagar"):
+    comandos = {
+        "apagar": "shutdown /s /t 30 /c 'Apagando en 30 segundos'",
+        "reiniciar": "shutdown /r /t 30 /c 'Reiniciando en 30 segundos'",
+        "hibernar": "shutdown /h"
+    }
+    if modo not in comandos:
+        return False, "Modo de apagado no reconocido."
+    try:
+        subprocess.run(comandos[modo], shell=True)
+        return True, f"Sistema {modo}ndose en 30 segundos. Escribí 'shutdown /a' en CMD para cancelar."
+    except Exception as e:
+        return False, f"Error al {modo}: {str(e)}"
+
+def ejecutar(parametro):
+    parametro = parametro.lower().strip()
+    if not parametro:
+        return False, "Especificá qué comando de sistema querés ejecutar."
+    if "hora" in parametro:
+        return obtener_hora()
+    elif "fecha" in parametro:
+        return obtener_fecha()
+    elif "volumen" in parametro or "sonido" in parametro:
+        import re
+        if "subir" in parametro or "más" in parametro or "alto" in parametro:
+            return controlar_volumen("subir")
+        elif "bajar" in parametro or "menos" in parametro or "bajo" in parametro:
+            return controlar_volumen("bajar")
+        elif "mudo" in parametro or "silencio" in parametro or "mutear" in parametro:
+            return controlar_volumen("silencio")
+        elif "activa" in parametro or "saca" in parametro or "quita" in parametro:
+            return controlar_volumen("sonido")
+        else:
+            m = re.search(r'(\d+)', parametro)
+            if m:
+                return controlar_volumen("establecer", m.group(1))
+            return controlar_volumen("obtener")
+    elif "apagar" in parametro:
+        return apagar_sistema("apagar")
+    elif "reiniciar" in parametro or "restart" in parametro:
+        return apagar_sistema("reiniciar")
+    elif "hibernar" in parametro:
+        return apagar_sistema("hibernar")
+    else:
+        return False, "Comando de sistema no reconocido."
+
+__all__ = ["obtener_hora", "obtener_fecha", "controlar_volumen", "apagar_sistema",
+           "ejecutar", "TRIGGERS"]
+
+
+comandos/youtube.py:
+# ────────────────────────────────────────────────────────────────────
+# Comando: YouTube
+# ────────────────────────────────────────────────────────────────────
+# Abre YouTube en el navegador predeterminado con opción de buscar.
+# ────────────────────────────────────────────────────────────────────
+
+import subprocess
+import json
+
+TRIGGERS = ["youtube", "you tube", "yt", "videos", "video", "buscar video"]
+
+def cargar_config():
+    from core import cargar_config as _cargar_config, cargar_perfil
+    return _cargar_config(), cargar_perfil()
+
+def get_navegador_predeterminado():
+    config, perfil = cargar_config()
+    navegadores = ["brave.exe", "chrome.exe", "firefox.exe", "msedge.exe"]
+    return navegadores[0]
+
+def abrir_youtube(busqueda=None):
+    if busqueda:
+        busqueda_encoded = busqueda.replace(" ", "+")
+        url = f"https://www.youtube.com/results?search_query={busqueda_encoded}"
+    else:
+        url = "https://www.youtube.com"
+    return url
+
+def ejecutar(parametro):
+    try:
+        url = abrir_youtube(parametro if parametro else None)
+        subprocess.Popen(f'start {url}', shell=True)
+        if parametro:
+            return True, f"Buscando '{parametro}' en YouTube"
+        else:
+            return True, "Abriendo YouTube"
+    except Exception as e:
+        return False, f"Error abriendo YouTube: {str(e)}"
+
+__all__ = ["ejecutar", "TRIGGERS"]
+
+comandos_usuario.py:
+# ────────────────────────────────────────────────────────────────────
+# Gestor de Comandos Dinámicos del Usuario
+# ────────────────────────────────────────────────────────────────────
+# Permite crear, editar, eliminar y ejecutar comandos sin tocar código.
+# Funciona en runtime: carga/guarda JSON sin reiniciar.
+# ────────────────────────────────────────────────────────────────────
+
+import json
+import os
+import webbrowser
+import subprocess
+import logging
+from datetime import datetime
+from typing import Dict, List, Tuple, Optional
+
+logger = logging.getLogger(__name__)
+
+RUTA_COMANDOS_USUARIO = "storage/user_data/comandos_usuario.json"
+
+def cargar_comandos_usuario() -> Dict:
+    try:
+        if not os.path.exists(RUTA_COMANDOS_USUARIO):
+            logger.warning(f"Archivo {RUTA_COMANDOS_USUARIO} no existe. Retornando estructura vacía.")
+            return {"comandos": [], "version": "1.0"}
+        with open(RUTA_COMANDOS_USUARIO, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Error cargando comandos usuario: {e}")
+        return {"comandos": [], "version": "1.0"}
+
+def guardar_comandos_usuario(data: Dict) -> bool:
+    try:
+        os.makedirs("data", exist_ok=True)
+        with open(RUTA_COMANDOS_USUARIO, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        logger.info(f"Comandos usuario guardados: {len(data.get('comandos', []))} comandos")
+        return True
+    except Exception as e:
+        logger.error(f"Error guardando comandos usuario: {e}")
+        return False
+
+def buscar_comando_por_trigger(texto: str) -> Optional[Dict]:
+    data = cargar_comandos_usuario()
+    texto_lower = texto.lower().strip()
+    for cmd in data.get("comandos", []):
+        if not cmd.get("activo", True):
+            continue
+        for trigger in cmd.get("triggers", []):
+            if trigger.lower() in texto_lower or texto_lower in trigger.lower():
+                logger.info(f"Comando encontrado: {cmd['nombre']}")
+                return cmd
+    return None
+
+def obtener_comando_por_id(cmd_id: str) -> Optional[Dict]:
+    data = cargar_comandos_usuario()
+    for cmd in data.get("comandos", []):
+        if cmd.get("id") == cmd_id:
+            return cmd
+    return None
+
+def obtener_todos_los_comandos() -> List[Dict]:
+    data = cargar_comandos_usuario()
+    return data.get("comandos", [])
+
+def crear_comando(nombre: str, triggers: List[str], tipo: str,
+                  parametro: str = "", descripcion: str = "") -> Tuple[bool, str, Optional[str]]:
+    data = cargar_comandos_usuario()
+    if not nombre or not triggers:
+        return False, "Nombre y triggers son requeridos", None
+    if tipo not in data.get("tipos_soportados", []):
+        return False, f"Tipo '{tipo}' no soportado", None
+    cmd_id = f"cmd_{len(data.get('comandos', [])) + 1:03d}"
+    nuevo_cmd = {
+        "id": cmd_id, "nombre": nombre.strip(),
+        "triggers": [t.strip().lower() for t in triggers],
+        "tipo": tipo, "parametro": parametro.strip(),
+        "descripcion": descripcion.strip(), "activo": True,
+        "fecha_creacion": datetime.now().isoformat(),
+        "fecha_modificacion": datetime.now().isoformat()
+    }
+    data["comandos"].append(nuevo_cmd)
+    if guardar_comandos_usuario(data):
+        return True, f"Comando '{nombre}' creado exitosamente", cmd_id
+    else:
+        return False, "Error guardando comando", None
+
+def editar_comando(cmd_id: str, **kwargs) -> Tuple[bool, str]:
+    data = cargar_comandos_usuario()
+    cmd = None
+    for i, c in enumerate(data.get("comandos", [])):
+        if c["id"] == cmd_id:
+            cmd = c
+            idx = i
+            break
+    if not cmd:
+        return False, f"Comando {cmd_id} no encontrado"
+    campos_permitidos = ["nombre", "triggers", "tipo", "parametro", "descripcion", "activo"]
+    for campo, valor in kwargs.items():
+        if campo in campos_permitidos:
+            if campo == "triggers" and isinstance(valor, list):
+                cmd[campo] = [t.strip().lower() for t in valor]
+            else:
+                cmd[campo] = valor
+    cmd["fecha_modificacion"] = datetime.now().isoformat()
+    data["comandos"][idx] = cmd
+    if guardar_comandos_usuario(data):
+        return True, f"Comando {cmd_id} actualizado"
+    else:
+        return False, "Error guardando cambios"
+
+def eliminar_comando(cmd_id: str) -> Tuple[bool, str]:
+    data = cargar_comandos_usuario()
+    original_len = len(data.get("comandos", []))
+    data["comandos"] = [c for c in data.get("comandos", []) if c["id"] != cmd_id]
+    if len(data["comandos"]) < original_len:
+        if guardar_comandos_usuario(data):
+            return True, f"Comando {cmd_id} eliminado"
+        else:
+            return False, "Error guardando cambios"
+    else:
+        return False, f"Comando {cmd_id} no encontrado"
+
+def ejecutar_comando(cmd: Dict) -> Tuple[bool, str]:
+    try:
+        tipo = cmd.get("tipo")
+        parametro = cmd.get("parametro", "")
+        logger.info(f"Ejecutando comando: {cmd['nombre']} (tipo: {tipo})")
+        if tipo == "abrir_url":
+            return _ejecutar_abrir_url(parametro)
+        elif tipo == "abrir_app":
+            return _ejecutar_abrir_app(parametro)
+        elif tipo == "escribir":
+            return _ejecutar_escribir(parametro)
+        elif tipo == "secuencia":
+            return _ejecutar_secuencia(cmd.get("acciones", []))
+        elif tipo == "hablar":
+            return _ejecutar_hablar(parametro)
+        else:
+            return False, f"Tipo de comando desconocido: {tipo}"
+    except Exception as e:
+        logger.error(f"Error ejecutando comando: {e}")
+        return False, f"Error: {str(e)}"
+
+def _ejecutar_abrir_url(url: str) -> Tuple[bool, str]:
+    try:
+        webbrowser.open(url)
+        return True, f"Abriendo URL: {url}"
+    except Exception as e:
+        return False, f"Error abriendo URL: {e}"
+
+def _ejecutar_abrir_app(app_name: str) -> Tuple[bool, str]:
+    try:
+        from comandos import apps
+        return apps.abrir_app(app_name)
+    except Exception as e:
+        return False, f"Error abriendo app: {e}"
+
+def _ejecutar_escribir(texto: str) -> Tuple[bool, str]:
+    try:
+        from comandos import escribir
+        return escribir.ejecutar(texto)
+    except Exception as e:
+        return False, f"Error escribiendo: {e}"
+
+def _ejecutar_secuencia(acciones: List[str]) -> Tuple[bool, str]:
+    resultados = []
+    for accion in acciones:
+        cmd = buscar_comando_por_trigger(accion)
+        if cmd:
+            exito, msg = ejecutar_comando(cmd)
+            resultados.append(f"✓ {msg}" if exito else f"✗ {msg}")
+        else:
+            try:
+                from core import ejecutar_accion
+                exito, msg = ejecutar_accion(accion, "")
+                resultados.append(f"✓ {msg}" if exito else f"✗ {msg}")
+            except:
+                resultados.append(f"✗ No se encontró acción: {accion}")
+    return True, f"Secuencia completada. Resultados: {'; '.join(resultados)}"
+
+def _ejecutar_hablar(texto: str) -> Tuple[bool, str]:
+    try:
+        from core import hablar
+        exito = hablar(texto)
+        if exito:
+            return True, f"Jarvis dijo: {texto}"
+        else:
+            return False, "Error en TTS"
+    except Exception as e:
+        return False, f"Error hablando: {e}"
+
+__all__ = [
+    "cargar_comandos_usuario", "guardar_comandos_usuario",
+    "buscar_comando_por_trigger", "obtener_comando_por_id",
+    "obtener_todos_los_comandos", "crear_comando",
+    "editar_comando", "eliminar_comando", "ejecutar_comando"
+]
+
+
+empaquetar.bat:
+@echo off
+REM ────────────────────────────────────────────────────────────────────
+REM EMPAQUETAR JARVIS COMO .EXE
+REM ────────────────────────────────────────────────────────────────────
+
+setlocal enabledelayedexpansion
+color 0A
+
+echo.
+echo ╔════════════════════════════════════════════════════════════════╗
+echo ║        EMPAQUETAR JARVIS COMO EJECUTABLE (.EXE)                ║
+echo ╚════════════════════════════════════════════════════════════════╝
+echo.
+
+if not defined VIRTUAL_ENV (
+    echo [!] No estás en el entorno virtual
+    echo [*] Activando env...
+    if exist "%~dp0env\Scripts\activate.bat" (
+        call "%~dp0env\Scripts\activate.bat"
+    ) else (
+        echo [!] No se encontró env\Scripts\activate.bat
+        pause
+        exit /b 1
+    )
+)
+
+echo [*] Instalando PyInstaller...
+pip install pyinstaller --quiet
+if errorlevel 1 (
+    echo [!] Error instalando PyInstaller
+    pause
+    exit /b 1
+)
+
+if exist dist (
+    echo [*] Limpiando distribuciones previas...
+    rmdir /s /q dist
+    rmdir /s /q build
+    if exist Jarvis.spec del /q Jarvis.spec
+)
+
+echo.
+echo [*] Empaquetando Jarvis...
+echo [*] Esto puede tardar 2-5 minutos...
+echo.
+
+pyinstaller --onefile ^
+    --windowed ^
+    --name "Jarvis" ^
+    --add-data "config.json:." ^
+    --add-data "perfiles:perfiles" ^
+    --add-data "comandos:comandos" ^
+    --add-data "core:core" ^
+    --add-data "ui:ui" ^
+    --add-data "commands:commands" ^
+    --add-data "storage:storage" ^
+    --add-data "logs:logs" ^
+    --hidden-import=faster_whisper ^
+    --hidden-import=openwakeword ^
+    --hidden-import=sounddevice ^
+    --hidden-import=scipy ^
+    --hidden-import=numpy ^
+    --hidden-import=ollama ^
+    --hidden-import=PIL ^
+    --hidden-import=pyautogui ^
+    --hidden-import=_cffi_backend ^
+    --hidden-import=cffi ^
+    --hidden-import=_soundfile ^
+    --hidden-import=keyboard ^
+    --hidden-import=psutil ^
+    --add-binary "env\Lib\site-packages\_cffi_backend*.pyd;." ^
+    --add-data "env\Lib\site-packages\openwakeword\resources\models;openwakeword\resources\models" ^
+    --add-data "env\Lib\site-packages\faster_whisper\assets;faster_whisper\assets" ^
+    asistente.py
+
+if errorlevel 1 (
+    echo [!] Error durante el empaquetamiento
+    pause
+    exit /b 1
+)
+
+echo.
+echo ╔════════════════════════════════════════════════════════════════╗
+echo ║                   EMPAQUETAMIENTO COMPLETADO                   ║
+echo ╚════════════════════════════════════════════════════════════════╝
+echo.
+echo [✓] Ejecutable creado: dist\Jarvis.exe
+echo.
+echo [*] Instrucciones:
+echo    1. El archivo .exe está en: dist\Jarvis.exe
+echo    2. Puedes copiarlo a cualquier carpeta
+echo    3. Requiere: config.json, perfiles\, core\, ui\, commands\ en la misma carpeta
+echo.
+pause
+
+
+iniciar.bat:
+@echo off
+call env\Scripts\activate.bat
+python asistente.py
+pause

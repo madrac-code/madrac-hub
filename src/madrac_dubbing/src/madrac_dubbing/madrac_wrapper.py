@@ -25,13 +25,8 @@ from madrac_dubbing.__main__ import cli as original_cli
 from madrac_dubbing.utils.paths import MADRAC_SUBS_EXE, FFMPEG_EXE, FFPROBE_EXE
 from madrac_dubbing.madrac_integration import MADRACIntegration
 
-# Configure logging
 import logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("madrac.dubbing.wrapper")
 
 
 class MADRACDubbingWrapper:

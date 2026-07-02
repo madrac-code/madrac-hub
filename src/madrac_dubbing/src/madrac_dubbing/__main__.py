@@ -10,15 +10,24 @@ if sys.platform == "win32":
 import click
 from pathlib import Path
 
+
+def _setup_logging():
+    try:
+        from madrac.core.logging import setup_logging, get_logger
+        setup_logging()
+        return get_logger("dubbing.__main__")
+    except ImportError:
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        return logging.getLogger(__name__)
+
+logger = _setup_logging()
+
 from .cli import dub
 from .api import run_api
 from .utils.profiler import StartupProfiler
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------

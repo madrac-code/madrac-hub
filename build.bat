@@ -42,6 +42,10 @@ if not exist src\madrac_dubbing\tests (
     echo ERROR: src\madrac_dubbing\tests no encontrado
     exit /b 1
 )
+if not exist src\madrac_asistente\asistente.py (
+    echo ERROR: src\madrac_asistente\asistente.py no encontrado
+    exit /b 1
+)
 if not exist requirements.txt (
     echo ERROR: requirements.txt no encontrado
     exit /b 1

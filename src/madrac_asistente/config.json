@@ -1,0 +1,62 @@
+{
+  "comentario": "Configuración principal del asistente Jarvis",
+  "modelo_ia": {
+    "tipo": "ollama",
+    "opciones": {
+      "ollama": {
+        "modelo": "qwen2.5:3b",
+        "base_url": "http://localhost:11434"
+      },
+      "claude": {
+        "api_key": "",
+        "modelo": "claude-3-5-sonnet-20241022"
+      },
+      "openai": {
+        "api_key": "",
+        "modelo": "gpt-4o-mini"
+      }
+    }
+  },
+  "whisper": {
+    "modelo": "small",
+    "opciones": [
+      "tiny",
+      "base",
+      "small",
+      "medium"
+    ],
+    "device": "cpu",
+    "compute_type": "int8"
+  },
+  "wakeword": {
+    "modelo": "hey_jarvis_v0.1.onnx",
+    "umbral": 0.35,
+    "framework": "onnx"
+  },
+  "audio": {
+    "sample_rate": 16000,
+    "chunk_size": 1280,
+    "duracion_grabacion": 5,
+    "dispositivo_mic": null,
+    "idioma": "es"
+  },
+  "tts": {
+    "motor": "powershell",
+    "voz": "Microsoft Sabina Desktop",
+    "opciones": [
+      "pyttsx3",
+      "powershell",
+      "azure"
+    ]
+  },
+  "carpetas": {
+    "musica": "~/Music",
+    "perfiles": "./perfiles",
+    "logs": "./logs"
+  },
+  "interfaz": {
+    "mostrar_gui": true,
+    "tema": "dark"
+  },
+  "setup_completado": true
+}

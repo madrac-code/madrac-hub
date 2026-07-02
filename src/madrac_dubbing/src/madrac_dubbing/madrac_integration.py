@@ -18,11 +18,7 @@ from typing import Optional, Dict, Any, List
 from .integration_layer import capabilities as _layer_caps
 from .workspace_manager import get_manager as _get_ws_manager
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("madrac.dubbing.integration")
 
 CONFIG_DIR = Path.home() / ".madrac"
 CONFIG_FILE = CONFIG_DIR / "madrac-dubbing.json"

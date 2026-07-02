@@ -1,24 +1,22 @@
 from pathlib import Path
-import os
-import shutil
 import sys
+import shutil
 
 
 def get_app_dir() -> Path:
-    """
-    Devuelve la carpeta donde está el exe.
-    """
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-
-    return Path(__file__).resolve().parents[3]
+    try:
+        from madrac.core.paths import get_project_root
+        return get_project_root()
+    except ImportError:
+        if getattr(sys, "frozen", False):
+            return Path(sys.executable).parent
+        return Path(__file__).resolve().parents[5]
 
 
 APP_DIR = get_app_dir()
 
 MADRAC_SUBS_EXE = APP_DIR / "madrac-subs.exe"
 
-# Buscar ffmpeg/ffprobe: primero en PATH (Linux/AppImage), luego .exe (Windows)
 _ffmpeg_candidate = shutil.which("ffmpeg")
 if _ffmpeg_candidate:
     FFMPEG_EXE = Path(_ffmpeg_candidate)

@@ -1,0 +1,1411 @@
+asistente.py:
+# ────────────────────────────────────────────────────────────────────
+# JARVIS - Asistente de Escritorio Local en Windows
+# ────────────────────────────────────────────────────────────────────
+# Loop principal del asistente. Orquesta el flujo completo.
+# ────────────────────────────────────────────────────────────────────
+
+import sys
+import os
+import time
+import atexit
+import subprocess
+import urllib.request
+import urllib.error
+import threading
+from core import (
+    cargar_config,
+    cargar_perfil,
+    guardar_config,
+    guardar_perfil,
+    configurar_logging,
+    logger,
+    grabar_audio,
+    esperar_wakeword,
+    transcribir,
+    hablar,
+    consultar_ia,
+    ejecutar_accion,
+    detectar_intencion_basica
+)
+from historial import HistorialConversacion
+from gui import crear_gui
+
+historial = HistorialConversacion(max_tamano=10)
+_proceso_ollama = None
+
+
+def _ollama_responde() -> bool:
+    try:
+        urllib.request.urlopen("http://127.0.0.1:11434", timeout=2)
+        return True
+    except Exception:
+        return False
+
+
+def _iniciar_ollama():
+    global _proceso_ollama
+    if _ollama_responde():
+        logger.info("Ollama ya está corriendo")
+        return
+
+    logger.info("Iniciando Ollama...")
+    try:
+        _proceso_ollama = subprocess.Popen(
+            ["ollama", "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        for _ in range(30):
+            if _ollama_responde():
+                logger.info("Ollama iniciado correctamente")
+                return
+            time.sleep(0.5)
+        logger.warning("Ollama no respondió después de 15 segundos")
+    except FileNotFoundError:
+        logger.error("Ollama no encontrado. Instalalo en https://ollama.com")
+
+
+def _detener_ollama():
+    global _proceso_ollama
+    if _proceso_ollama:
+        logger.info("Deteniendo Ollama...")
+        _proceso_ollama.terminate()
+        try:
+            _proceso_ollama.wait(timeout=5)
+        except Exception:
+            _proceso_ollama.kill()
+        _proceso_ollama = None
+
+def inicializar_sistema():
+    """Inicializa todos los componentes del asistente."""
+    logger.info("=" * 70)
+    logger.info("INICIANDO JARVIS")
+    logger.info("=" * 70)
+    try:
+        config = cargar_config()
+        perfil = cargar_perfil()
+        logger.info(f"Configuración cargada: {config['modelo_ia']['tipo']}")
+        return True
+    except Exception as e:
+        logger.error(f"Error inicializando sistema: {e}")
+        return False
+
+def loop_principal(gui=None):
+    """Loop principal del asistente."""
+    global historial
+
+    hablar("Asistente iniciado. Decí hey Jarvis para activarme.")
+    if gui:
+        gui.actualizar_estado("Escuchando...")
+        gui.agregar_log("Sistema listo. Esperando palabra clave...")
+
+    logger.info("Sistema listo. Esperando wakeword...")
+
+    while True:
+        try:
+            if gui and not gui.activo:
+                continue
+
+            if gui:
+                gui.actualizar_estado("Esperando wakeword...")
+
+            esperar_wakeword()
+
+            logger.info("Palabra clave detectada!")
+            if gui:
+                gui.actualizar_estado("Palabra clave detectada")
+                gui.agregar_log("Palabra clave detectada")
+
+            hablar("Si?")
+
+            if gui:
+                gui.actualizar_estado("Grabando comando...")
+
+            config = cargar_config()
+            audio_cmd = grabar_audio(segundos=config["audio"]["duracion_grabacion"])
+
+            if gui:
+                gui.actualizar_estado("Transcribiendo...")
+
+            comando = transcribir(audio_cmd)
+
+            if gui:
+                gui.actualizar_comando(comando)
+                gui.agregar_log(f"Transcripcion: '{comando}'")
+
+            if comando:
+                if gui:
+                    gui.actualizar_estado("Procesando...")
+
+                accion, parametro, es_comando = consultar_ia(comando, historial)
+                logger.info(f"Accion: {accion} | Parametro: {parametro}")
+
+                # Limpiar historial después de comandos (no conversación)
+                if es_comando:
+                    logger.info("Comando ejecutado - limpiando historial")
+                    historial.limpiar()
+
+                if gui:
+                    gui.actualizar_estado("Ejecutando...")
+
+                exito, mensaje = ejecutar_accion(accion, parametro)
+
+                if gui:
+                    gui.actualizar_respuesta(mensaje)
+                    gui.agregar_log(f"Respuesta: {mensaje}")
+
+                if gui:
+                    gui.actualizar_estado("Hablando...")
+
+                hablar(mensaje)
+            else:
+                hablar("No entendí nada, intentá de nuevo.")
+
+            if gui:
+                gui.actualizar_estado("Escuchando...")
+
+        except KeyboardInterrupt:
+            logger.info("Asistente interrumpido por usuario")
+            if gui:
+                gui.agregar_log("Asistente detenido")
+            hablar("Adiós!")
+            _detener_ollama()
+            break
+
+        except Exception as e:
+            logger.error(f"Error en loop principal: {e}", exc_info=True)
+            if gui:
+                gui.agregar_log(f"Error: {e}")
+            hablar("Ocurrió un error. Intentá de nuevo.")
+
+def main():
+    """Función principal."""
+    configurar_logging()
+    _iniciar_ollama()
+    atexit.register(_detener_ollama)
+
+    if not inicializar_sistema():
+        logger.error("No se pudo inicializar el sistema")
+        sys.exit(1)
+
+    config = cargar_config()
+    if not config.get("setup_completado", False):
+        logger.info("Primera ejecución - lanzando asistente de configuración...")
+        from ui.setup_wizard import ejecutar_setup
+        ejecutar_setup()
+        config = cargar_config()
+
+    if config["interfaz"]["mostrar_gui"]:
+        gui, root = crear_gui()
+        thread_asistente = threading.Thread(target=loop_principal, args=(gui,), daemon=True)
+        thread_asistente.start()
+        gui.mostrar()
+    else:
+        loop_principal(gui=None)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        logger.error(f"Error fatal: {e}", exc_info=True)
+        print(f"Error fatal: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+core/__init__.py:
+# ────────────────────────────────────────────────────────────────────
+# Núcleo del Asistente MADRAC
+# ────────────────────────────────────────────────────────────────────
+# Módulo central que contiene las utilidades compartidas del asistente.
+# Este módulo se divide en sub-módulos especializados para mejor mantenibilidad.
+# ────────────────────────────────────────────────────────────────────
+
+from .config import (
+    cargar_config,
+    cargar_perfil,
+    guardar_config,
+    guardar_perfil,
+    configurar_logging,
+    logger
+)
+
+from .audio import grabar_audio, esperar_wakeword
+from .transcription import transcribir
+from .tts import hablar
+from .ia import (
+    normalizar,
+    _distancia_edicion,
+    detectar_intencion_basica,
+    consultar_ia,
+    _consultar_ollama,
+    _consultar_claude,
+    _consultar_openai
+)
+from .actions import ejecutar_accion
+
+__all__ = [
+    # Configuración
+    "cargar_config",
+    "cargar_perfil",
+    "guardar_config",
+    "guardar_perfil",
+    "configurar_logging",
+    "logger",
+    # Audio
+    "grabar_audio",
+    "esperar_wakeword",
+    # Transcripción
+    "transcribir",
+    # TTS
+    "hablar",
+    # IA
+    "normalizar",
+    "_distancia_edicion",
+    "detectar_intencion_basica",
+    "consultar_ia",
+    "_consultar_ollama",
+    "_consultar_claude",
+    "_consultar_openai",
+    # Acciones
+    "ejecutar_accion"
+]
+
+
+core/config.py:
+# ────────────────────────────────────────────────────────────────────
+# Configuración
+# ────────────────────────────────────────────────────────────────────
+# Funciones para cargar y guardar configuración y perfiles del usuario.
+# ────────────────────────────────────────────────────────────────────
+
+import json
+import os
+import sys
+import logging
+from datetime import datetime
+from typing import Dict
+
+from .utils import obtener_ruta_recurso, obtener_ruta_escritura
+
+# Configurar logging
+logger = logging.getLogger(__name__)
+
+
+def cargar_config() -> Dict:
+    """Carga config.json: primero junto al .exe (modificaciones), sino bundle."""
+    ruta = obtener_ruta_escritura("config.json")
+    if not os.path.exists(ruta):
+        ruta = obtener_ruta_recurso("config.json")
+    with open(ruta, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def cargar_perfil() -> Dict:
+    """Carga perfil: primero junto al .exe (modificaciones), sino bundle."""
+    ruta = obtener_ruta_escritura("perfiles/default.json")
+    if not os.path.exists(ruta):
+        ruta = obtener_ruta_recurso("perfiles/default.json")
+    with open(ruta, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def guardar_config(config: Dict):
+    """Guarda config.json junto al ejecutable."""
+    ruta = obtener_ruta_escritura("config.json")
+    with open(ruta, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+
+
+def guardar_perfil(perfil: Dict):
+    """Guarda el perfil del usuario junto al ejecutable."""
+    ruta = obtener_ruta_escritura("perfiles/default.json")
+    os.makedirs(os.path.dirname(ruta), exist_ok=True)
+    with open(ruta, "w", encoding="utf-8") as f:
+        json.dump(perfil, f, indent=2, ensure_ascii=False)
+
+
+def configurar_logging():
+    """Configura el sistema de logging del asistente."""
+    ruta_logs = obtener_ruta_escritura("logs")
+    os.makedirs(ruta_logs, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(os.path.join(ruta_logs, f"jarvis_{timestamp}.log")),
+            logging.StreamHandler()
+        ]
+    )
+    return logging.getLogger(__name__)
+
+__all__ = [
+    "cargar_config",
+    "cargar_perfil",
+    "guardar_config",
+    "guardar_perfil",
+    "configurar_logging",
+    "logger"
+]
+
+
+core/utils.py:
+# ────────────────────────────────────────────────────────────────────
+# Utilidades
+# ────────────────────────────────────────────────────────────────────
+# Funciones utilitarias compartidas.
+# ────────────────────────────────────────────────────────────────────
+
+import os
+import sys
+from typing import Tuple
+
+
+def _raiz_proyecto() -> str:
+    """Retorna la raíz del proyecto (parent del directorio core/)."""
+    if getattr(sys, 'frozen', False):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _raiz_ejecutable() -> str:
+    """Retorna el directorio del ejecutable o raíz del proyecto."""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return _raiz_proyecto()
+
+
+def obtener_ruta_recurso(ruta_relativa: str) -> str:
+    """Ruta absoluta para lectura de archivos empaquetados o raíz del proyecto."""
+    return os.path.join(_raiz_proyecto(), ruta_relativa)
+
+
+def obtener_ruta_escritura(ruta_relativa: str) -> str:
+    """Ruta absoluta para escritura (junto al .exe o raíz del proyecto)."""
+    return os.path.join(_raiz_ejecutable(), ruta_relativa)
+
+__all__ = [
+    "obtener_ruta_recurso",
+    "obtener_ruta_escritura"
+]
+
+
+core/audio.py:
+# ────────────────────────────────────────────────────────────────────
+# Audio
+# ────────────────────────────────────────────────────────────────────
+# Funciones para grabación de audio y detección de wakeword.
+# ────────────────────────────────────────────────────────────────────
+
+from typing import Tuple
+
+from .config import cargar_config, logger
+
+
+def grabar_audio(segundos: int = 5):
+    """
+    Graba audio del micrófono seleccionado.
+
+    Args:
+        segundos (int): duración de la grabación
+
+    Returns:
+        np.ndarray: audio grabado
+    """
+    import sounddevice as sd
+    import numpy as np
+    config = cargar_config()
+    sample_rate = config["audio"]["sample_rate"]
+    device = config["audio"]["dispositivo_mic"]
+
+    logger.info(f"Grabando {segundos} segundos desde dispositivo {device}...")
+
+    audio = sd.rec(
+        int(segundos * sample_rate),
+        samplerate=sample_rate,
+        channels=1,
+        dtype="int16",
+        device=device
+    )
+    sd.wait()
+
+    return audio
+
+
+def esperar_wakeword() -> bool:
+    """
+    Espera a que el usuario diga la palabra clave.
+
+    Returns:
+        bool: True si se detectó la palabra clave
+    """
+    import sounddevice as sd
+    import numpy as np
+    from openwakeword.model import Model as WakeModel
+
+    config = cargar_config()
+    sample_rate = config["audio"]["sample_rate"]
+    chunk_size = config["audio"]["chunk_size"]
+    device = config["audio"]["dispositivo_mic"]
+    modelo_path = config["wakeword"]["modelo"]
+    umbral = config["wakeword"]["umbral"]
+
+    logger.info("Esperando palabra clave...")
+
+    wake_model = WakeModel(
+        wakeword_models=[modelo_path],
+        inference_framework=config["wakeword"]["framework"]
+    )
+    wake_model.reset()
+
+    with sd.InputStream(
+        samplerate=sample_rate,
+        channels=1,
+        dtype="int16",
+        device=device,
+        blocksize=chunk_size
+    ) as stream:
+        while True:
+            chunk, _ = stream.read(chunk_size)
+            chunk_np = np.squeeze(chunk)
+            prediccion = wake_model.predict(chunk_np)
+            score = list(prediccion.values())[0]
+
+            if score >= umbral:
+                logger.info(f"Palabra clave detectada (score: {score:.2f})")
+                return True
+
+__all__ = [
+    "grabar_audio",
+    "esperar_wakeword"
+]
+
+
+core/transcription.py:
+# ────────────────────────────────────────────────────────────────────
+# Transcripción
+# ────────────────────────────────────────────────────────────────────
+# Funciones para transcripción de audio usando Whisper.
+# ────────────────────────────────────────────────────────────────────
+
+import tempfile
+import os
+from typing import Tuple
+
+from .config import cargar_config, logger
+from .utils import obtener_ruta_recurso
+
+
+def transcribir(audio: 'np.ndarray') -> str:
+    """
+    Transcribe audio usando Whisper.
+
+    Args:
+        audio (np.ndarray): datos de audio
+
+    Returns:
+        str: texto transcrito
+    """
+    import scipy.io.wavfile as wav
+    from faster_whisper import WhisperModel
+
+    config = cargar_config()
+    modelo_whisper = config["whisper"]["modelo"]
+    sample_rate = config["audio"]["sample_rate"]
+    idioma = config["audio"]["idioma"]
+
+    # Crear archivo temporal
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp_path = tmp.name
+    tmp.close()
+
+    try:
+        # Guardar audio en archivo temporal
+        wav.write(tmp_path, sample_rate, audio)
+
+        # Transcribir con Whisper
+        logger.info(f"Transcribiendo con modelo {modelo_whisper}...")
+        whisper_model = WhisperModel(
+            modelo_whisper,
+            device=config["whisper"]["device"],
+            compute_type=config["whisper"]["compute_type"]
+        )
+
+        segmentos, _ = whisper_model.transcribe(
+            tmp_path,
+            language=idioma,
+            beam_size=2,
+            vad_filter=True,
+            hotwords="música volumen youtube abrir cerrar poner siguiente anterior pausa silenciar fecha hora"
+        )
+        texto = " ".join(s.text for s in segmentos)
+
+        logger.info(f"Transcripción: {texto}")
+        return texto.strip().lower()
+
+    finally:
+        # Limpiar archivo temporal
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+
+__all__ = [
+    "transcribir"
+]
+
+
+core/tts.py:
+# ────────────────────────────────────────────────────────────────────
+# TTS
+# ────────────────────────────────────────────────────────────────────
+# Funciones para síntesis de voz (Text-to-Speech).
+# ────────────────────────────────────────────────────────────────────
+
+import subprocess
+from typing import Tuple
+
+from .config import cargar_config, logger
+
+
+def hablar(texto: str) -> bool:
+    """
+    Convierte texto a voz usando el motor TTS configurado.
+
+    Args:
+        texto (str): texto a reproducir
+
+    Returns:
+        bool: True si fue exitoso
+    """
+    config = cargar_config()
+    motor = config["tts"]["motor"]
+
+    logger.info(f"Asistente: {texto}")
+
+    if motor == "powershell":
+        return _hablar_powershell(texto)
+    elif motor == "pyttsx3":
+        return _hablar_pyttsx3(texto)
+    else:
+        logger.error(f"Motor TTS desconocido: {motor}")
+        return False
+
+
+def _hablar_powershell(texto: str) -> bool:
+    """Usa PowerShell y TTS de Windows para hablar."""
+    config = cargar_config()
+    voz = config["tts"]["voz"]
+
+    # Limpiar caracteres problemáticos
+    texto_safe = texto.replace("'", "").replace('"', "")
+
+    try:
+        subprocess.run([
+            "powershell", "-Command",
+            f"Add-Type -AssemblyName System.Speech; "
+            f"$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+            f"$s.SelectVoice('{voz}'); "
+            f"$s.Speak('{texto_safe}')"
+        ], capture_output=True, timeout=30)
+        return True
+    except Exception as e:
+        logger.error(f"Error en TTS PowerShell: {e}")
+        return False
+
+
+def _hablar_pyttsx3(texto: str) -> bool:
+    """Usa pyttsx3 para hablar."""
+    try:
+        import pyttsx3
+        config = cargar_config()
+        voz = config["tts"]["voz"]
+
+        engine = pyttsx3.init()
+        engine.say(texto)
+        engine.runAndWait()
+        return True
+    except Exception as e:
+        logger.error(f"Error en TTS pyttsx3: {e}")
+        return False
+
+__all__ = [
+    "hablar",
+    "_hablar_powershell",
+    "_hablar_pyttsx3"
+]
+
+
+core/ia.py:
+# ────────────────────────────────────────────────────────────────────
+# IA
+# ────────────────────────────────────────────────────────────────────
+# Funciones para interacción con IA, detección de intenciones y consulta a modelos.
+# ────────────────────────────────────────────────────────────────────
+
+import json
+from typing import Tuple, Optional
+
+from .config import cargar_config, logger
+from .historial import HistorialConversacion
+
+
+def normalizar(texto: str) -> str:
+    """
+    Normaliza texto para detección de intenciones.
+
+    Args:
+        texto: texto a normalizar
+
+    Returns:
+        str: texto normalizado (minusculas, sin acentos, sin espacios extra)
+    """
+    import unicodedata
+
+    # Convertir a minusculas
+    texto = texto.lower()
+
+    # Eliminar acentos
+    texto = unicodedata.normalize('NFKD', texto)
+    texto = texto.encode('ascii', 'ignore').decode('ascii')
+
+    # Normalizar espacios
+    texto = ' '.join(texto.split())
+
+    return texto
+
+
+def _distancia_edicion(s1: str, s2: str) -> int:
+    """Distancia Levenshtein entre dos strings."""
+    if len(s1) < len(s2):
+        s1, s2 = s2, s1
+    if not s2:
+        return len(s1)
+    anterior = list(range(len(s2) + 1))
+    for i, c1 in enumerate(s1):
+        actual = [i + 1]
+        for j, c2 in enumerate(s2):
+            cost = 0 if c1 == c2 else 1
+            actual.append(min(actual[j] + 1, anterior[j + 1] + 1, anterior[j] + cost))
+        anterior = actual
+    return anterior[-1]
+
+
+def detectar_intencion_basica(comando: str) -> Tuple[Optional[str], Optional[str], bool]:
+    """
+    Detecta intenciones básicas en el texto del usuario ANTES de llamar a Ollama.
+
+    Args:
+        comando: texto transcrito del usuario
+
+    Returns:
+        tuple: (accion, parametro, es_comando)
+        Retorna (None, None, False) si no hay coincidencia, sino la acción detectada.
+    """
+    import unicodedata
+
+    if not comando:
+        return None, None, False
+
+    # Normalizar el comando
+    texto_normalizado = normalizar(comando)
+
+    # Crear lista de palabras una vez para todas las verificaciones
+    palabras_texto = texto_normalizado.split()
+
+    # ─── Correccion fonetica para verbos de control con palabras de musica ───
+    PALABRAS_MUSICA = {"musica", "reproductor", "cancion", "tema",
+                       "playlist", "genero", "artista", "album", "canciones"}
+    VERBOS_CONTROL = {
+        "cerrar": "cerrar", "detener": "detener", "pausa": "pausa",
+        "pausar": "pausa", "reanudar": "reanudar", "reproducir": "reproducir",
+    }
+    if any(p in palabras_texto for p in PALABRAS_MUSICA):
+        for i, palabra in enumerate(palabras_texto):
+            if palabra in VERBOS_CONTROL:
+                palabras_texto[i] = VERBOS_CONTROL[palabra]
+                continue
+            if palabra in PALABRAS_MUSICA:
+                continue
+            for verbo, canonical in VERBOS_CONTROL.items():
+                if _distancia_edicion(palabra, verbo) <= 2:
+                    palabras_texto[i] = canonical
+                    logger.debug("Intencion basica: correccion fonetica '%s' -> '%s' sobre musica", palabra, canonical)
+                    break
+
+    # Mapeo de palabras clave a acciones (palabras exactas)
+    palabras_clave_contenido = [
+        ("reproducir", "reproducir_musica", ""),
+        ("poner", "reproducir_musica", ""),
+        ("pon", "reproducir_musica", ""),
+        ("pone", "reproducir_musica", ""),
+        ("silenciar", "silenciar", ""),
+        ("subir", "subir_volumen", ""),
+        ("bajar", "bajar_volumen", ""),
+        ("volumen", "subir_volumen", ""),
+        ("volumen", "bajar_volumen", ""),
+        ("qué", "obtener_hora", ""),
+        ("que", "obtener_hora", ""),
+        ("hora", "obtener_hora", ""),
+        ("qué", "obtener_fecha", ""),
+        ("que", "obtener_fecha", ""),
+        ("fecha", "obtener_fecha", ""),
+        ("pausa", "play_pause", ""),
+        ("pause", "play_pause", ""),
+        ("pausar", "play_pause", ""),
+        ("reanudar", "play_pause", ""),
+        ("cerrar", "cerrar_ventana", ""),
+    ]
+
+    for palabra_clave, accion, parametro in palabras_clave_contenido:
+        if palabra_clave in palabras_texto:
+            if palabra_clave == "cerrar":
+                idx = palabras_texto.index("cerrar")
+                resto = palabras_texto[idx+1:]
+                if resto and resto[0] in ("musica", "reproductor", "cancion"):
+                    return "detener_musica", "", True
+                parametro = " ".join(resto) if resto else ""
+            logger.info("Intencion basica detectada (coincidencia de palabra clave): %s en '%s' -> %s", palabra_clave, texto_normalizado, accion)
+            return accion, parametro, True
+
+    patrones_intencion = [
+        ("abrir youtube", "youtube", ""),
+        ("abrir chrome", "abrir_app", "chrome"),
+        ("abrir brave", "abrir_app", "brave"),
+        ("abrir navegador", "abrir_app", "iexplore"),
+        ("cerrar ventana", "cerrar_ventana", ""),
+        ("cerrar música", "cerrar_ventana", "música"),
+        ("cerrar pestania", "cerrar_pestania", ""),
+        ("detener musica", "detener_musica", ""),
+        ("detener reproductor", "detener_musica", ""),
+        ("detener cancion", "detener_musica", ""),
+        ("de tener musica", "detener_musica", ""),
+        ("de tener reproductor", "detener_musica", ""),
+        ("de tener cancion", "detener_musica", ""),
+        ("cera musica", "detener_musica", ""),
+        ("sera musica", "detener_musica", ""),
+        ("poner música", "reproducir_musica", ""),
+        ("reproducir música", "reproducir_musica", ""),
+        ("subir volumen", "subir_volumen", ""),
+        ("bajar volumen", "bajar_volumen", ""),
+        ("silenciar", "silenciar", ""),
+        ("hora", "obtener_hora", ""),
+        ("fecha", "obtener_fecha", ""),
+    ]
+
+    for prefijo, accion, parametro in patrones_intencion:
+        if prefijo == texto_normalizado:
+            logger.info("Intencion basica detectada (coincidencia exacta): %s -> %s", prefijo, accion)
+            return accion, parametro, True
+
+    for prefijo, accion, parametro in patrones_intencion:
+        palabras_prefijo = prefijo.split()
+        if len(palabras_texto) >= len(palabras_prefijo):
+            texto_inicio = ' '.join(palabras_texto[:len(palabras_prefijo)])
+            if texto_inicio == prefijo:
+                logger.info("Intencion basica detectada (coincidencia flexible): %s -> %s", texto_normalizado, accion)
+                return accion, parametro, True
+
+    logger.debug("No se detecto intencion basica en: '%s'", comando)
+    return None, None, False
+
+
+def consultar_ia(comando: str, historial: HistorialConversacion) -> Tuple[str, str, bool]:
+    """
+    Consulta al modelo de IA configurado.
+
+    Args:
+        comando (str): comando o pregunta del usuario
+        historial: Instancia de HistorialConversacion
+
+    Returns:
+        tuple: (accion, parametro, es_comando)
+    """
+    # Intentar deteccion basica ANTES de llamar a Ollama
+    accion_basica, parametro_basico, es_comando_basico = detectar_intencion_basica(comando)
+    if accion_basica is not None:
+        logger.info("Intencion basica detectada: %s con parametro '%s'", accion_basica, parametro_basico)
+        return accion_basica, parametro_basico, es_comando_basico
+
+    config = cargar_config()
+    tipo_ia = config["modelo_ia"]["tipo"]
+
+    historial.agregar_usuario(comando)
+
+    if tipo_ia == "ollama":
+        accion, parametro = _consultar_ollama(comando, historial)
+    elif tipo_ia == "claude":
+        accion, parametro = _consultar_claude(comando, historial)
+    elif tipo_ia == "openai":
+        accion, parametro = _consultar_openai(comando, historial)
+    else:
+        logger.error("Tipo de IA desconocido: %s", tipo_ia)
+        return "conversar", "No tengo conexion con el modelo de IA.", False
+
+    es_comando = historial.es_comando(accion)
+
+    if not es_comando:
+        historial.agregar_asistente(parametro)
+
+    return accion, parametro, es_comando
+
+
+def _consultar_ollama(comando: str, historial: HistorialConversacion) -> Tuple[str, str]:
+    """
+    Consulta a Ollama.
+
+    Args:
+        comando (str): comando del usuario
+        historial: Instancia de HistorialConversacion
+
+    Returns:
+        tuple: (accion, parametro)
+    """
+    import ollama
+
+    config = cargar_config()
+    modelo = config["modelo_ia"]["opciones"]["ollama"]["modelo"]
+
+    system_prompt = (
+        "Sos un asistente de escritorio en español rioplatense.\n"
+        "Respondé SIEMPRE con un JSON válido y nada más, sin explicaciones, sin markdown.\n"
+        "Formato exacto: {\"accion\": \"ACCION\", \"parametro\": \"VALOR\"}\n"
+        "Acciones disponibles:\n"
+        "- conversar: para charla o preguntas generales. parametro = tu respuesta corta.\n"
+        "- reproducir_musica: cuando pidan poner música, si no mencionan canción específica dejá parametro vacío. parametro = nombre canción, artista o género.\n"
+        "- cerrar_ventana: cuando pidan cerrar un programa. parametro = nombre del programa.\n"
+        "- abrir_app: cuando pidan abrir algo. parametro = nombre del programa.\n"
+        "- obtener_hora: cuando pidan la hora. parametro = vacio.\n"
+        "- obtener_fecha: cuando pidan la fecha. parametro = vacio.\n"
+        "- escribir: cuando pidan escribir algo. parametro = texto a escribir.\n"
+        "- youtube: cuando pidan youtube o buscar video. parametro = término de búsqueda (opcional).\n"
+        "- play_pause: cuando pidan pausar o reanudar la reproducción de música o video. parametro = vacio.\n"
+        "- siguiente_cancion: cuando pidan pasar a la siguiente canción. parametro = vacio.\n"
+        "- anterior_cancion: cuando pidan volver a la canción anterior. parametro = vacio.\n"
+        "- cerrar_pestania: cuando pidan cerrar una pestaña del navegador. parametro = vacio.\n"
+        "- subir_volumen: cuando pidan subir el volumen. parametro = vacio.\n"
+        "- bajar_volumen: cuando pidan bajar el volumen. parametro = vacio.\n"
+        "- silenciar: cuando pidan silenciar o mutear. parametro = vacio.\n"
+        "- establecer_volumen: cuando pidan un volumen específico. parametro = número del 0 al 100.\n"
+        "Nunca respondas fuera del JSON. Nunca inventes información."
+    )
+
+    try:
+        logger.info("=== MENSAJES ENVIADOS A OLLAMA ===")
+
+        for i, msg in enumerate(historial.mensajes):
+            logger.info("[%d] %s: %s", i, msg["role"], msg["content"])
+
+        logger.info("================================")
+        respuesta = ollama.chat(
+            model=modelo,
+            messages=[{"role": "system", "content": system_prompt}] + historial.mensajes
+        )
+
+        texto = respuesta["message"]["content"].strip()
+        texto = texto.replace("```json", "").replace("```", "").strip()
+        logger.info("=== RESPUESTA RAW OLLAMA ===")
+        logger.info(repr(texto))
+        logger.info("============================")
+        try:
+            data = json.loads(texto)
+            accion = data.get("accion", "conversar")
+            parametro = data.get("parametro", "")
+            logger.info(f"Acción: {accion} | Parámetro: {parametro}")
+            return accion, parametro
+        except json.JSONDecodeError:
+            logger.error(f"JSON inválido de Ollama: {texto}")
+            return "conversar", "No entendí bien, podés repetir?"
+
+    except Exception as e:
+        logger.error(f"Error consultando Ollama: {e}")
+        return "conversar", "Hubo un error consultando el modelo de IA."
+
+
+def _consultar_claude(comando: str, historial: HistorialConversacion) -> Tuple[str, str]:
+    """Consulta a Claude API (por implementar)."""
+    logger.warning("Claude API no implementado aún")
+    return "conversar", "Claude API no está configurada."
+
+
+def _consultar_openai(comando: str, historial: HistorialConversacion) -> Tuple[str, str]:
+    """Consulta a OpenAI API (por implementar)."""
+    logger.warning("OpenAI API no implementado aún")
+    return "conversar", "OpenAI API no está configurada."
+
+__all__ = [
+    "normalizar",
+    "_distancia_edicion",
+    "detectar_intencion_basica",
+    "consultar_ia",
+    "_consultar_ollama",
+    "_consultar_claude",
+    "_consultar_openai"
+]
+
+
+core/actions.py:
+# ────────────────────────────────────────────────────────────────────
+# Acciones
+# ────────────────────────────────────────────────────────────────────
+# Funciones para ejecutar acciones decididas por la IA.
+# ────────────────────────────────────────────────────────────────────
+
+from typing import Tuple
+
+from .config import logger
+
+
+def ejecutar_accion(accion: str, parametro: str) -> Tuple[bool, str]:
+    """
+    Ejecuta la acción decidida por el IA.
+
+    Primero busca en comandos del usuario (dinámicos).
+    Si no existe, fallback a comandos core (Python).
+
+    Args:
+        accion (str): nombre de la acción
+        parametro (str): parámetro para la acción
+
+    Returns:
+        tuple: (exito: bool, mensaje: str)
+    """
+    logger.info(f"Ejecutando acción: {accion} con parámetro: {parametro}")
+
+    try:
+        # ─── FASE 1: Buscar en comandos dinámicos del usuario ───
+        import comandos_usuario
+        cmd = comandos_usuario.buscar_comando_por_trigger(accion)
+        if cmd:
+            logger.info(f"Comando dinámico encontrado: {cmd['nombre']}")
+            return comandos_usuario.ejecutar_comando(cmd)
+
+        # ─── FASE 2: Fallback a comandos core ───
+        if accion == "reproducir_musica":
+            from comandos import musica
+            return musica.ejecutar(parametro)
+
+        elif accion == "detener_musica":
+            from comandos import musica
+            return musica.detener_musica()
+
+        elif accion == "abrir_app":
+            from comandos import apps
+            return apps.abrir_app(parametro)
+
+        elif accion == "cerrar_ventana":
+            from comandos import apps
+            return apps.cerrar_app(parametro)
+
+        elif accion == "obtener_hora":
+            from comandos import sistema
+            return sistema.obtener_hora()
+
+        elif accion == "obtener_fecha":
+            from comandos import sistema
+            return sistema.obtener_fecha()
+
+        elif accion == "escribir":
+            from comandos import escribir
+            return escribir.ejecutar(parametro)
+
+        elif accion == "youtube":
+            from comandos import youtube
+            return youtube.ejecutar(parametro)
+
+        elif accion == "play_pause":
+            from comandos import media
+            return media.play_pause()
+
+        elif accion == "siguiente_cancion":
+            from comandos import media
+            return media.siguiente()
+
+        elif accion == "anterior_cancion":
+            from comandos import media
+            return media.anterior()
+
+        elif accion == "cerrar_pestania":
+            from comandos import media
+            return media.cerrar_pestania()
+
+        elif accion == "subir_volumen":
+            from comandos import sistema
+            return sistema.controlar_volumen("subir")
+
+        elif accion == "bajar_volumen":
+            from comandos import sistema
+            return sistema.controlar_volumen("bajar")
+
+        elif accion == "silenciar":
+            from comandos import sistema
+            return sistema.controlar_volumen("silencio")
+
+        elif accion == "establecer_volumen":
+            from comandos import sistema
+            return sistema.controlar_volumen("establecer", parametro)
+
+        elif accion == "conversar":
+            from comandos import conversar
+            return conversar.ejecutar(parametro)
+
+        else:
+            logger.warning(f"Acción desconocida: {accion}")
+            return False, f"No sé cómo ejecutar la acción '{accion}'."
+
+    except Exception as e:
+        logger.error(f"Error ejecutando acción {accion}: {e}")
+        return False, f"Error al ejecutar {accion}: {str(e)}"
+
+__all__ = [
+    "ejecutar_accion"
+]
+
+
+historial.py:
+# ────────────────────────────────────────────────────────────────────
+# historial.py — Gestión del historial de conversación con Ollama
+# ────────────────────────────────────────────────────────────────────
+# Separa el historial de conversación (user/assistant) de los comandos
+# JSON ejecutados. Limpia el historial tras cada comando no conversacional.
+# ────────────────────────────────────────────────────────────────────
+
+import json
+from typing import List, Dict, Tuple
+
+
+# ─── CONSTANTES ────────────────────────────────────────────────────
+
+# Acciones que NO son conversacionales (son comandos ejecutables)
+ACCIONES_COMANDO = {
+    "reproducir_musica", "cerrar_ventana", "abrir_app",
+    "obtener_hora", "obtener_fecha", "escribir", "youtube",
+    "play_pause", "siguiente_cancion", "anterior_cancion",
+    "cerrar_pestania", "subir_volumen", "bajar_volumen",
+    "silenciar", "establecer_volumen"
+}
+
+
+# ─── CLASE HISTORIAL ──────────────────────────────────────────────
+
+class HistorialConversacion:
+    """
+    Gestiona el historial de mensajes para Ollama.
+
+    Reglas:
+    - Solo se guardan mensajes de conversación (user/assistant)
+    - NO se guardan respuestas JSON de comandos ejecutados
+    - Se limpia el historial después de cada comando no conversacional
+    - Se limita el tamaño máximo del historial
+    """
+
+    def __init__(self, max_tamano: int = 10):
+        self._mensajes: List[Dict] = []
+        self._max_tamano = max_tamano
+
+    @property
+    def mensajes(self) -> List[Dict]:
+        """Retorna copia del historial actual."""
+        return self._mensajes.copy()
+
+    @property
+    def tamano(self) -> int:
+        """Retorna cantidad de mensajes en el historial."""
+        return len(self._mensajes)
+
+    def agregar_usuario(self, texto: str) -> None:
+        """
+        Agrega un mensaje del usuario al historial.
+
+        Args:
+            texto: Texto que dijo el usuario
+        """
+        self._mensajes.append({
+            "role": "user",
+            "content": texto
+        })
+        self._recortar()
+
+    def agregar_asistente(self, texto: str) -> None:
+        """
+        Agrega un mensaje del asistente al historial.
+        Solo se usa para respuestas conversacionales (NO para JSON de comandos).
+
+        Args:
+            texto: Texto de respuesta del asistente
+        """
+        self._mensajes.append({
+            "role": "assistant",
+            "content": texto
+        })
+        self._recortar()
+
+    def es_comando(self, accion: str) -> bool:
+        """
+        Determina si una acción es un comando ejecutable
+        (no conversacional).
+
+        Args:
+            accion: Nombre de la acción devuelta por Ollama
+
+        Returns:
+            True si es un comando, False si es conversación
+        """
+        return accion in ACCIONES_COMANDO
+
+    def limpiar(self) -> None:
+        """
+        Limpia todo el historial.
+        Se llama después de ejecutar un comando no conversacional.
+        """
+        self._mensajes.clear()
+
+    def _recortar(self) -> None:
+        """Mantiene el historial dentro del límite máximo."""
+        while len(self._mensajes) > self._max_tamano:
+            self._mensajes.pop(0)
+
+
+# ─── FUNCIONES AUXILIARES ─────────────────────────────────────────
+
+def crear_historial(max_tamano: int = 10) -> HistorialConversacion:
+    """Factory function para crear un historial."""
+    return HistorialConversacion(max_tamano=max_tamano)
+
+
+def procesar_respuesta_ollama(
+    historial: HistorialConversacion,
+    comando: str,
+    respuesta_texto: str
+) -> Tuple[str, str, bool]:
+    """
+    Procesa la respuesta de Ollama:
+    1. Agrega el comando del usuario al historial
+    2. Parsea el JSON de respuesta
+    3. Si es conversación, agrega la respuesta al historial
+    4. Si es comando, NO agrega la respuesta (solo limpiar después)
+
+    Args:
+        historial: Instancia de HistorialConversacion
+        comando: Texto del usuario
+        respuesta_texto: Respuesta JSON de Ollama
+
+    Returns:
+        Tupla (accion, parametro, es_comando)
+    """
+    historial.agregar_usuario(comando)
+
+    texto = respuesta_texto.strip()
+    texto = texto.replace("```json", "").replace("```", "").strip()
+
+    try:
+        data = json.loads(texto)
+        accion = data.get("accion", "conversar")
+        parametro = data.get("parametro", "")
+    except json.JSONDecodeError:
+        historial.agregar_asistente(texto)
+        return "conversar", "No entendí bien, podés repetir?", False
+
+    es_comando = historial.es_comando(accion)
+
+    if not es_comando:
+        historial.agregar_asistente(texto)
+
+    return accion, parametro, es_comando
+
+
+# ─── TESTS UNITARIOS INLINE ───────────────────────────────────────
+
+if __name__ == "__main__":
+    print("=== TESTS UNITARIOS: historial.py ===\n")
+
+    h = crear_historial(max_tamano=5)
+    assert h.tamano == 0, "Historial debería empezar vacío"
+    print("[OK] Test 1: Historial empieza vacío")
+
+    h.agregar_usuario("Hola")
+    h.agregar_asistente("¡Hola! ¿Cómo estás?")
+    assert h.tamano == 2, f"Debería tener 2 mensajes, tiene {h.tamano}"
+    print("[OK] Test 2: Agregar mensajes funciona")
+
+    h2 = crear_historial(max_tamano=3)
+    for i in range(5):
+        h2.agregar_usuario(f"Mensaje {i}")
+    assert h2.tamano == 3, f"Debería tener 3 mensajes, tiene {h2.tamano}"
+    assert h2.mensajes[0]["content"] == "Mensaje 2", "Primer mensaje debería ser 'Mensaje 2'"
+    print("[OK] Test 3: Límite de tamaño funciona")
+
+    h.limpiar()
+    assert h.tamano == 0, "Historial debería estar vacío después de limpiar()"
+    print("[OK] Test 4: limpiar() funciona")
+
+    h3 = crear_historial()
+    assert h3.es_comando("reproducir_musica") == True, "reproducir_musica es comando"
+    assert h3.es_comando("cerrar_ventana") == True, "cerrar_ventana es comando"
+    assert h3.es_comando("conversar") == False, "conversar NO es comando"
+    assert h3.es_comando("obtener_hora") == True, "obtener_hora es comando"
+    print("[OK] Test 5: Detección comando vs conversación")
+
+    h4 = crear_historial()
+    accion, param, es_cmd = procesar_respuesta_ollama(
+        h4,
+        "poner música",
+        '{"accion": "reproducir_musica", "parametro": ""}'
+    )
+    assert accion == "reproducir_musica", f"Acción incorrecta: {accion}"
+    assert es_cmd == True, "Debería detectar como comando"
+    assert h4.tamano == 1, f"Debería tener 1 mensaje (solo user), tiene {h4.tamano}"
+    assert h4.mensajes[0]["role"] == "user", "El mensaje debería ser del user"
+    print("[OK] Test 6: JSON de comando NO se guarda en historial")
+
+    h5 = crear_historial()
+    accion, param, es_cmd = procesar_respuesta_ollama(
+        h5,
+        "¿Qué hora es?",
+        '{"accion": "conversar", "parametro": "Son las 3 de la tarde."}'
+    )
+    assert accion == "conversar", f"Acción incorrecta: {accion}"
+    assert es_cmd == False, "Debería detectar como conversación"
+    assert h5.tamano == 2, f"Debería tener 2 mensajes (user+assistant), tiene {h5.tamano}"
+    print("[OK] Test 7: Respuesta conversacional SÍ se guarda")
+
+    h6 = crear_historial()
+    h6.agregar_usuario("Hola")
+    h6.agregar_asistente("¡Hola!")
+    assert h6.tamano == 2
+
+    accion, _, _ = procesar_respuesta_ollama(
+        h6,
+        "poner música",
+        '{"accion": "reproducir_musica", "parametro": ""}'
+    )
+    if h6.es_comando(accion):
+        h6.limpiar()
+    assert h6.tamano == 0, f"Debería estar vacío después de comando, tiene {h6.tamano}"
+    print("[OK] Test 8: Limpiar después de comando funciona")
+
+    h7 = crear_historial()
+    accion, param, es_cmd = procesar_respuesta_ollama(
+        h7,
+        "hola",
+        'Esto no es JSON válido'
+    )
+    assert accion == "conversar", "JSON inválido debería ser conversación"
+    assert es_cmd == False
+    assert h7.tamano == 2, "Debería tener user + assistant"
+    print("[OK] Test 9: JSON inválido se trata como conversación")
+
+    print("\n=== TODOS LOS TESTS PASARON ===")
+
+
+config.json:
+{
+  "comentario": "Configuración principal del asistente Jarvis",
+  "modelo_ia": {
+    "tipo": "ollama",
+    "opciones": {
+      "ollama": {
+        "modelo": "qwen2.5:3b",
+        "base_url": "http://localhost:11434"
+      },
+      "claude": {
+        "api_key": "",
+        "modelo": "claude-3-5-sonnet-20241022"
+      },
+      "openai": {
+        "api_key": "",
+        "modelo": "gpt-4o-mini"
+      }
+    }
+  },
+  "whisper": {
+    "modelo": "small",
+    "opciones": [
+      "tiny",
+      "base",
+      "small",
+      "medium"
+    ],
+    "device": "cpu",
+    "compute_type": "int8"
+  },
+  "wakeword": {
+    "modelo": "hey_jarvis_v0.1.onnx",
+    "umbral": 0.35,
+    "framework": "onnx"
+  },
+  "audio": {
+    "sample_rate": 16000,
+    "chunk_size": 1280,
+    "duracion_grabacion": 5,
+    "dispositivo_mic": null,
+    "idioma": "es"
+  },
+  "tts": {
+    "motor": "powershell",
+    "voz": "Microsoft Sabina Desktop",
+    "opciones": [
+      "pyttsx3",
+      "powershell",
+      "azure"
+    ]
+  },
+  "carpetas": {
+    "musica": "~/Music",
+    "perfiles": "./perfiles",
+    "logs": "./logs"
+  },
+  "interfaz": {
+    "mostrar_gui": true,
+    "tema": "dark"
+  },
+  "setup_completado": true
+}
+
+
+requirements.txt:
+# ────────────────────────────────────────────────────────────────────
+# Dependencias del Asistente Jarvis
+# ────────────────────────────────────────────────────────────────────
+# Instala con: pip install -r requirements.txt
+# ────────────────────────────────────────────────────────────────────
+
+# Transcripción de voz
+faster-whisper>=0.10.0
+
+# Detección de palabra clave
+openwakeword>=0.5.0
+
+# Captura y procesamiento de audio
+sounddevice>=0.4.6
+scipy>=1.11.0
+numpy>=1.24.0
+
+# Cliente para Ollama
+ollama>=0.1.0
+
+# Procesamiento de imágenes (para screenshot)
+Pillow>=10.0.0
+
+# Automatización de teclado y ratón
+pyautogui>=0.9.53
+pyperclip>=1.8.2
+
+# Control de volumen del sistema (Windows Core Audio API)
+pycaw>=20231004
+comtypes>=1.4.0
+
+# Teclas multimedia globales (play/pause, next, prev)
+keyboard>=0.13.5
+
+# Para futuras integraciones de IA (opcional)
+# openai>=1.3.0
+# anthropic>=0.7.0
+
+# Desarrollo y debugging (opcional)
+# pyinstaller>=6.0.0  # Para empaquetar como .exe
+
+# Métricas de evaluación (para pruebas de Whisper)
+jiwer>=2.3.0

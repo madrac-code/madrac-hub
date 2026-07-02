@@ -31,8 +31,10 @@ from ..utils.media import (
 from ..utils.ffmpeg import pick_best_track, extract_subtitle_track, get_duration as _get_duration
 from ..utils.hashing import sha256 as _sha256
 from .dialogs import AboutDialog, ExtensionsDialog
+from .dialogs.assistant_config_dialog import AssistantConfigDialog
 from .dialogs.editor_dialog import EditorDialog
 from .dub_dialog import DubDialog
+from ..assistant.manager import AssistantManager
 from ..dubbing.manager import DubbingManager
 from .i18n import _
 
@@ -145,6 +147,9 @@ class MainWindow(QMainWindow):
         self._start_timers()
         self._restore_state()
         self._refresh_queue()
+        self._asistente_mgr = AssistantManager(self)
+        self._asistente_mgr.state_changed.connect(self._on_asistente_state)
+        self._asistente_mgr.error_occurred.connect(self._on_asistente_error)
         if CLIENTE.is_logged_in():
             QTimer.singleShot(0, self._check_community_batch)
 
@@ -281,6 +286,32 @@ class MainWindow(QMainWindow):
         self._editor_btn.setStyleSheet(btn_style)
         self._editor_btn.clicked.connect(self._on_editor)
         row.addWidget(self._editor_btn)
+
+        self._asistente_btn = QPushButton(_("Asistente"))
+        self._asistente_btn.setObjectName("btn_asistente")
+        self._asistente_btn.setCheckable(True)
+        self._asistente_btn.setToolTip(
+            _("Encender/Apagar el asistente de voz")
+        )
+        self._asistente_btn.setStyleSheet(
+            "QPushButton {"
+            "  min-height: 36px;"
+            "  min-width: 100px;"
+            "  font-size: 11pt;"
+            "  padding-left: 12px;"
+            "  padding-right: 12px;"
+            "  border: 1px solid #444;"
+            "  border-radius: 4px;"
+            "  background: #5a2020;"
+            "  color: #eee;"
+            "}"
+            "QPushButton:hover { background: #6a3030; }"
+            "QPushButton:pressed { background: #4a1010; }"
+            "QPushButton:checked { background: #1e5a20; }"
+            "QPushButton:checked:hover { background: #2e6a30; }"
+        )
+        self._asistente_btn.toggled.connect(self._on_asistente_toggled)
+        row.addWidget(self._asistente_btn)
 
         self.btn_dub = QPushButton(_("Dub Now"))
         self.btn_dub.setObjectName("btn_dub")
@@ -711,6 +742,36 @@ class MainWindow(QMainWindow):
 
     def _on_about(self):
         AboutDialog(self).exec()
+
+    # ------------------------------------------------------------ Asistente
+
+    def _on_asistente_toggled(self, activo: bool):
+        if activo:
+            self._asistente_btn.setText(_("Asistente: ON"))
+            self._asistente_mgr.start()
+        else:
+            self._asistente_btn.setText(_("Asistente"))
+            self._asistente_mgr.stop()
+
+    def _on_asistente_state(self, running: bool):
+        self._asistente_btn.blockSignals(True)
+        self._asistente_btn.setChecked(running)
+        self._asistente_btn.blockSignals(False)
+        if running:
+            self._asistente_btn.setText(_("Asistente: ON"))
+        else:
+            self._asistente_btn.setText(_("Asistente"))
+
+    def _on_asistente_error(self, msg: str):
+        self._asistente_btn.blockSignals(True)
+        self._asistente_btn.setChecked(False)
+        self._asistente_btn.blockSignals(False)
+        self._asistente_btn.setText(_("Asistente"))
+        self._append_log(f"[ERROR] Asistente: {msg}")
+
+    def _on_asistente_config(self):
+        dlg = AssistantConfigDialog(self)
+        dlg.show()
 
     # ------------------------------------------------------------ Dub Now
 

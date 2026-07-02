@@ -1,9 +1,9 @@
 # ============================================================================
-# MADRAC-SUBS — requirements moved to monorepo root
+# MADRAC-HUB - Dev & Build tools
 # ============================================================================
-# All dependencies are now managed from the monorepo root:
-#   D:\madrac-hub\requirements.txt
-#
-# To install:
-#   pip install -r ..\..\requirements.txt
+# Instalar: pip install -r dev-requirements.txt
 # ============================================================================
+
+nuitka>=1.4.0
+ruff>=0.1.0
+pyright>=1.1.0

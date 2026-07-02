@@ -1,0 +1,59 @@
+{
+  "comentario": "Perfil predeterminado del usuario - aplicaciones, aliases y preferencias personalizadas",
+  "aplicaciones": {
+    "bloc de notas": "notepad.exe",
+    "blog de notas": "notepad.exe",
+    "notepad": "notepad.exe",
+    "noutpad": "notepad.exe",
+    "notpad": "notepad.exe",
+    "calculadora": "calc.exe",
+    "calc": "calc.exe",
+    "explorador": "explorer.exe",
+    "explorer": "explorer.exe",
+    "chrome": "chrome.exe",
+    "firefox": "firefox.exe",
+    "vlc": "vlc.exe",
+    "bls": "vlc.exe",
+    "belece": "vlc.exe",
+    "reproductor": "vlc.exe",
+    "música": "wmplayer.exe",
+    "musica": "wmplayer.exe",
+    "spotify": "spotify.exe",
+    "brave": "brave.exe",
+    "breiv": "brave.exe",
+    "navegador": "brave.exe",
+    "navegador predeterminado": "brave.exe",
+    "browser": "brave.exe",
+    "buscador": "brave.exe",
+    "edge": "msedge.exe",
+    "word": "swriter.exe",
+    "writer": "swriter.exe",
+    "libreoffice": "swriter.exe",
+    "documento": "swriter.exe",
+    "procesador": "swriter.exe",
+    "excel": "excel.exe",
+    "powerpoint": "powerpnt.exe"
+  },
+  "generos_musica": {
+    "rock": "Rock",
+    "pop": "Pop",
+    "jazz": "Jazz",
+    "clasica": "Clásica",
+    "electronica": "Electrónica",
+    "hip-hop": "Hip-Hop",
+    "reggae": "Reggae",
+    "folk": "Folk"
+  },
+  "comandos_personalizados": [],
+  "atajos_voz": {
+    "abridor": "abrir_app",
+    "shutdownear": "apagar_sistema",
+    "cierre": "cerrar_ventana"
+  },
+  "preferencias": {
+    "respuestas_largas": false,
+    "usar_historial": true,
+    "max_historial": 10
+  },
+  "nombre": "Nico"
+}

@@ -8,11 +8,7 @@ from typing import Optional
 from .pipeline.models import DubbingJob, DubbingConfig
 from .pipeline.dubbing_pipeline import DubbingPipeline
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("madrac.dubbing.cli")
 
 
 @click.command()

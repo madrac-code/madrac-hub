@@ -1,5 +1,5 @@
 # ============================================================================
-# MADRAC-SUBS — requirements moved to monorepo root
+# MADRAC-ASISTENTE — requirements moved to monorepo root
 # ============================================================================
 # All dependencies are now managed from the monorepo root:
 #   D:\madrac-hub\requirements.txt
