@@ -147,9 +147,9 @@ if [ ! -f "$APPIMAGETOOL" ]; then
         exit 1
     fi
     wget -q -O "$APPIMAGETOOL" "$APPIMAGE_URL"
-    chmod +x "$APPIMAGETOOL"
     echo "  [OK] appimagetool descargado"
 fi
+chmod +x "$APPIMAGETOOL"
 
 if [ ! -f "$RUNTIME_FILE" ]; then
     echo "  Descargando type2-runtime..."
@@ -254,7 +254,7 @@ rsync -a --copy-links --no-owner --no-group \
     --exclude '__pycache__/' \
     --exclude '*.pyc' \
     --exclude '*.pyo' \
-    --exclude '*.dist-info/' \
+    --exclude '*.exe' \
     --exclude 'nvidia/' \
     --exclude 'PySide6/Qt/qml/' \
     --exclude 'PySide6/Qt/plugins/webengine/' \
@@ -275,6 +275,22 @@ rsync -a --copy-links --no-owner --no-group \
 echo "  Stripeando librerias (.so)..."
 find "$APPDIR/opt/madrac-hub/venv" -name '*.so' -type f -exec strip --strip-unneeded {} \; 2>/dev/null || true
 find "$APPDIR/usr/lib" -name '*.so' -type f -exec strip --strip-unneeded {} \; 2>/dev/null || true
+
+# Descargar ffmpeg static (si no existe ya)
+if [ ! -f "$APPDIR/usr/bin/ffmpeg" ]; then
+    echo "  Descargando ffmpeg static..."
+    FFMPEG_URL="https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz"
+    curl -L "$FFMPEG_URL" -o /tmp/ffmpeg.tar.xz 2>/dev/null
+    mkdir -p /tmp/ffmpeg-build
+    tar -xJf /tmp/ffmpeg.tar.xz -C /tmp/ffmpeg-build 2>/dev/null
+    cp /tmp/ffmpeg-build/*/bin/ffmpeg "$APPDIR/usr/bin/ffmpeg"
+    cp /tmp/ffmpeg-build/*/bin/ffprobe "$APPDIR/usr/bin/ffprobe"
+    chmod +x "$APPDIR/usr/bin/ffmpeg" "$APPDIR/usr/bin/ffprobe"
+    rm -rf /tmp/ffmpeg.tar.xz /tmp/ffmpeg-build
+    echo "  [OK] ffmpeg y ffprobe descargados"
+else
+    echo "  [OK] ffmpeg ya presente"
+fi
 
 # Crear iconos y metadata
 echo "  Creando metadata AppImage..."

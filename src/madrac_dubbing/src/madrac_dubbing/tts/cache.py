@@ -74,15 +74,15 @@ def _tts_cache_root() -> Path:
         from ..workspace_manager import get_manager
 
         mgr = get_manager()
-        cache_dir = mgr.workspace_root / "tts" / "cache"
+        cache_dir = mgr.cache_root / "tts"
         cache_dir.mkdir(parents=True, exist_ok=True)
         return cache_dir
     except Exception:
         pass
 
-    from ..utils.paths import APP_DIR
+    from pathlib import Path
 
-    fallback = APP_DIR / ".cache" / "tts"
+    fallback = Path.home() / ".cache" / "madrac-dubbing" / "tts"
     fallback.mkdir(parents=True, exist_ok=True)
     return fallback
 

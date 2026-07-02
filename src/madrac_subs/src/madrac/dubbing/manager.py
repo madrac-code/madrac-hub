@@ -2,6 +2,7 @@
 
 import logging
 import os
+import socket
 import subprocess
 import sys
 import threading
@@ -14,11 +15,16 @@ from PySide6.QtCore import QObject, Signal
 
 logger = logging.getLogger("madrac.dubbing.manager")
 
-API_PORT = 5000
-API_BASE = f"http://127.0.0.1:{API_PORT}"
 HEALTH_TIMEOUT_S = 45
 HEALTH_INTERVAL_S = 1
 POLL_INTERVAL_S = 2
+
+
+def _find_free_port() -> int:
+    """Bind to port 0 and return the assigned free port."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
 
 
 class DubbingManager(QObject):
@@ -41,9 +47,11 @@ class DubbingManager(QObject):
 
     def __init__(self, dubs_python_path: str = "", parent: QObject = None):
         super().__init__(parent)
-        self._dubs_python_path = dubs_python_path
+        self._dubs_python_path = dubs_python_path or sys.executable
         self._process: Optional[subprocess.Popen] = None
         self._requests = None
+        self._port = _find_free_port()
+        self._api_base = f"http://127.0.0.1:{self._port}"
 
     def _ensure_requests(self):
         if self._requests is None:
@@ -64,21 +72,39 @@ class DubbingManager(QObject):
             return True
 
         python_path = Path(self._dubs_python_path).resolve()
-        src_path = python_path.parent.parent.parent / "src"
-        if not src_path.is_dir():
+        base = python_path.parent.parent.parent
+
+        # Buscar madrac_dubbing/src/ (contiene el package con __main__.py)
+        src_candidates = [
+            base / "src" / "madrac_dubbing" / "src",        # dev: project_root/src/...
+            base / "opt" / "madrac-hub" / "src" / "madrac_dubbing" / "src",  # AppImage
+        ]
+
+        src_path = None
+        for sc in src_candidates:
+            if (sc / "madrac_dubbing").is_dir():
+                src_path = sc
+                break
+
+        if src_path is None:
             self.health_check_failed.emit(
-                f"src directory not found: {src_path} (from {self._dubs_python_path})"
+                f"madrac_dubbing package not found (tried: {[str(s) for s in src_candidates]})"
             )
             return False
         # Build minimal env — full copy of os.environ can cause [Errno 22] on Windows
-        env = {"PYTHONPATH": str(src_path)}
-        for _k in ("PATH", "SYSTEMROOT", "TEMP", "TMP", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "COMSPEC", "PATHEXT"):
+        _current_pp = os.environ.get("PYTHONPATH", "")
+        _pythonpath = str(src_path)
+        if _current_pp:
+            _pythonpath = f"{_pythonpath}:{_current_pp}"
+        env = {"PYTHONPATH": _pythonpath}
+        for _k in ("PATH", "LD_LIBRARY_PATH", "SYSTEMROOT", "TEMP", "TMP",
+                   "USERPROFILE", "APPDATA", "LOCALAPPDATA", "COMSPEC", "PATHEXT"):
             _v = os.environ.get(_k)
             if _v is not None:
                 env[_k] = _v
 
-        cmd = [str(python_path), "-m", "madrac_dubbing", "api", "--port", str(API_PORT)]
-        cwd = str(python_path.parent.parent.parent)
+        cmd = [str(python_path), "-m", "madrac_dubbing", "api", "--port", str(self._port)]
+        cwd = str(src_path.parent)
         logger.info("Launching DUBS: %s", " ".join(cmd))
 
         try:
@@ -113,7 +139,7 @@ class DubbingManager(QObject):
                 return False
             try:
                 self._ensure_requests()
-                resp = self._requests.get(f"{API_BASE}/health", timeout=3)
+                resp = self._requests.get(f"{self._api_base}/health", timeout=3)
                 if resp.status_code == 200 and resp.json().get("status") == "ok":
                     logger.info("DUBS health check passed")
                     time.sleep(1)  # dar tiempo a Flask para terminar init
@@ -179,7 +205,7 @@ class DubbingManager(QObject):
 
         for attempt in range(5):
             try:
-                resp = self._requests.post(f"{API_BASE}/dubbing", json=payload, timeout=10)
+                resp = self._requests.post(f"{self._api_base}/dubbing", json=payload, timeout=10)
                 resp.raise_for_status()
                 data = resp.json()
                 return data.get("job_id")
@@ -206,7 +232,7 @@ class DubbingManager(QObject):
         """
         self._ensure_requests()
         try:
-            resp = self._requests.get(f"{API_BASE}/dubbing/{job_id}", timeout=5)
+            resp = self._requests.get(f"{self._api_base}/dubbing/{job_id}", timeout=5)
             resp.raise_for_status()
             data = resp.json()
         except OSError as e:

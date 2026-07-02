@@ -48,13 +48,13 @@ class MADRACDubbingWrapper:
             if not FFMPEG_EXE.exists():
                 raise FileNotFoundError(
                     f"FFmpeg not found at: {FFMPEG_EXE}\n"
-                    "Download from: https://ffmpeg.org/download.html"
+                    "Install ffmpeg: sudo apt install ffmpeg  |  https://ffmpeg.org/download.html"
                 )
 
             if not FFPROBE_EXE.exists():
                 raise FileNotFoundError(
                     f"FFprobe not found at: {FFPROBE_EXE}\n"
-                    "Download from: https://ffmpeg.org/download.html"
+                    "Install ffmpeg: sudo apt install ffmpeg  |  https://ffmpeg.org/download.html"
                 )
 
             # Mode-specific setup

@@ -99,13 +99,13 @@ def validate_installation(operating_mode: str = 'integrated',
 
     if not FFMPEG_EXE.exists():
         raise FileNotFoundError(
-            f"ffmpeg.exe no encontrado en: {FFMPEG_EXE}\n"
-            "Descargue desde https://ffmpeg.org/download.html"
+            f"ffmpeg no encontrado en: {FFMPEG_EXE}\n"
+            "Instale ffmpeg: sudo apt install ffmpeg  |  https://ffmpeg.org/download.html"
         )
     if not FFPROBE_EXE.exists():
         raise FileNotFoundError(
-            f"ffprobe.exe no encontrado en: {FFPROBE_EXE}\n"
-            "Descargue desde https://ffmpeg.org/download.html"
+            f"ffprobe no encontrado en: {FFPROBE_EXE}\n"
+            "Instale ffmpeg: sudo apt install ffmpeg  |  https://ffmpeg.org/download.html"
         )
 
     if operating_mode == 'integrated':

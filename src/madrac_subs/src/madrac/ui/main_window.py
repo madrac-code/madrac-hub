@@ -752,13 +752,6 @@ class MainWindow(QMainWindow):
 
     def _start_dubbing(self, video_path: str, srt_path: str, config: dict, dlg: DubDialog):
         dubs_python = get_config("dubbing.dubs_python_path", "")
-        if not dubs_python:
-            from PySide6.QtWidgets import QMessageBox as _QMB
-            _QMB.warning(self, _("Dub Now"),
-                         _("La ruta a MADRAC-DUBS no esta configurada.\n"
-                           "Configure 'dubbing.dubs_python_path' en la configuracion."))
-            dlg.reject()
-            return
 
         video_dir = Path(video_path).parent
         video_stem = Path(video_path).stem

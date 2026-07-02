@@ -171,21 +171,34 @@ class EdgeTTSEngine(TTSEngine):
                     {"index": seg.index, "text": seg.text},
                 )
 
-                audio_bytes = loop.run_until_complete(
-                    self._synthesize_segment_async(seg.text, voice_id)
-                )
+                try:
+                    audio_bytes = loop.run_until_complete(
+                        self._synthesize_segment_async(seg.text, voice_id)
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Skipping segment %d due to TTS error: %s",
+                        seg.index, e,
+                    )
+                    continue
 
                 duration_ms = get_audio_duration_ms(audio_bytes)
 
-                save_tts_cache(h, audio_bytes, duration_ms, {
-                    "text": seg.text,
-                    "voice": voice_id,
-                    "language": language,
-                    "engine": "edge",
-                    "engine_version": _EDGE_VERSION,
-                    "rate": "default",
-                    "pitch": "default",
-                })
+                try:
+                    save_tts_cache(h, audio_bytes, duration_ms, {
+                        "text": seg.text,
+                        "voice": voice_id,
+                        "language": language,
+                        "engine": "edge",
+                        "engine_version": _EDGE_VERSION,
+                        "rate": "default",
+                        "pitch": "default",
+                    })
+                except Exception as e:
+                    logger.warning(
+                        "TTS cache write failed for segment %d: %s",
+                        seg.index, e,
+                    )
 
                 results.append(TTSSegment(
                     index=seg.index,

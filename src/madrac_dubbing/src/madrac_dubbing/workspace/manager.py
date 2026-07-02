@@ -47,8 +47,12 @@ class WorkspaceManager:
         
         self.app_dir = Path(app_dir).resolve()
         self.workspace_root = self.app_dir / "plugins"
-        self.cache_root = self.app_dir / ".cache"
         self.plugins_root = self.app_dir / "plugins"
+        # En AppImage o si app_dir es read-only, usar ~/.cache/madrac-dubbing/
+        if "APPIMAGE" in os.environ or not os.access(str(self.app_dir), os.W_OK):
+            self.cache_root = Path.home() / ".cache" / "madrac-dubbing"
+        else:
+            self.cache_root = self.app_dir / ".cache"
         self.stems_root = self.cache_root / "stems"
         
         # Thread-safe resource registry
