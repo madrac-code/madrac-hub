@@ -3,6 +3,7 @@ Path resolution for MADRAC-SUBS v3.
 Handles both development and frozen (PyInstaller) environments.
 """
 
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -124,10 +125,7 @@ def get_session_path() -> Path:
 
 def get_temp_dir() -> Path:
     """Get the temporary files directory."""
-    if is_frozen():
-        # In frozen mode, use a temp dir next to executable or system temp
-        return Path(sys.executable).parent / ".cache" / "temporal"
-    return get_project_root() / ".cache" / "temporal"
+    return get_user_config_dir() / "temporal"
 
 
 def get_plugins_dir() -> Path:
@@ -138,6 +136,8 @@ def get_plugins_dir() -> Path:
             p = c / "plugins"
             if p.exists():
                 return p
+    if "APPIMAGE" in os.environ:
+        return get_user_config_dir() / "plugins"
     return get_project_root() / "plugins"
 
 
