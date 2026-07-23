@@ -19,10 +19,10 @@ REM Verificar si estamos en el entorno virtual
 if not defined VIRTUAL_ENV (
 	echo [!] No estás en el entorno virtual
 	echo [*] Activando env...
-	if exist "%~dp0env\Scripts\activate.bat" (
-		call "%~dp0env\Scripts\activate.bat"
+	if exist "%~dp0..\..\venv\Scripts\activate.bat" (
+		call "%~dp0..\..\venv\Scripts\activate.bat"
 	) else (
-		echo [!] No se encontró env\Scripts\activate.bat
+		echo [!] No se encontró ..\..\venv\Scripts\activate.bat
 		pause
 		exit /b 1
 	)
@@ -75,9 +75,9 @@ pyinstaller --onefile ^
 	--hidden-import=_soundfile ^
 	--hidden-import=keyboard ^
 	--hidden-import=psutil ^
-	--add-binary "env\Lib\site-packages\_cffi_backend*.pyd;." ^
-	--add-data "env\Lib\site-packages\openwakeword\resources\models;openwakeword\resources\models" ^
-	--add-data "env\Lib\site-packages\faster_whisper\assets;faster_whisper\assets" ^
+	--add-binary "..\..\venv\Lib\site-packages\_cffi_backend*.pyd;." ^
+	--add-data "..\..\venv\Lib\site-packages\openwakeword\resources\models;openwakeword\resources\models" ^
+	--add-data "..\..\venv\Lib\site-packages\faster_whisper\assets;faster_whisper\assets" ^
 	asistente.py
 
 if errorlevel 1 (

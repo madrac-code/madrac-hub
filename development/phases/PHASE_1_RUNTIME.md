@@ -82,7 +82,11 @@
 ### Issue 3: Asyncio Windows Event Loop
 - **Problem**: Edge TTS doesn't work with ProactorEventLoop on Windows
 - **Status**: FIXED (WindowsSelectorEventLoopPolicy in `__main__.py`, commit 9528a3e)
-- **OSError errno 22 catching**: Added to health check and submit_job (LLAVE_001)
+- **OSError errno 22 catching**: Added to health check and submit_job
+  ~~LLAVE_001~~ *(deleted in commit 8fd09f0 — Engineering Sprint 001.
+  Content was about errno 22 / Winsock / asyncio on Windows.
+  Key fix: WindowsSelectorEventLoopPolicy must be set before any
+  asyncio loop in Windows. See ADR-006 for current status.)*
 
 ---
 

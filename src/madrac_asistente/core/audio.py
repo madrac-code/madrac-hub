@@ -39,12 +39,15 @@ def grabar_audio(segundos: int = 5):
     return audio
 
 
-def esperar_wakeword() -> bool:
+def esperar_wakeword(stop_event=None) -> bool:
     """
     Espera a que el usuario diga la palabra clave.
 
+    Args:
+        stop_event: threading.Event opcional para interrumpir la escucha
+
     Returns:
-        bool: True si se detectó la palabra clave
+        bool: True si se detectó la palabra clave, False si se detuvo
     """
     import sounddevice as sd
     import numpy as np
@@ -73,6 +76,8 @@ def esperar_wakeword() -> bool:
         blocksize=chunk_size
     ) as stream:
         while True:
+            if stop_event and stop_event.is_set():
+                return False
             chunk, _ = stream.read(chunk_size)
             chunk_np = np.squeeze(chunk)
             prediccion = wake_model.predict(chunk_np)

@@ -28,7 +28,6 @@ from core import (
     detectar_intencion_basica
 )
 from historial import HistorialConversacion
-from gui import crear_gui
 
 historial = HistorialConversacion(max_tamano=10)
 _proceso_ollama = None
@@ -90,7 +89,7 @@ def inicializar_sistema():
         logger.error(f"Error inicializando sistema: {e}")
         return False
 
-def loop_principal(gui=None):
+def loop_principal(gui=None, stop_event=None):
     """Loop principal del asistente."""
     global historial
 
@@ -102,6 +101,8 @@ def loop_principal(gui=None):
     logger.info("Sistema listo. Esperando wakeword...")
 
     while True:
+        if stop_event and stop_event.is_set():
+            break
         try:
             if gui and not gui.activo:
                 continue
@@ -109,7 +110,7 @@ def loop_principal(gui=None):
             if gui:
                 gui.actualizar_estado("Esperando wakeword...")
 
-            esperar_wakeword()
+            esperar_wakeword(stop_event=stop_event)
 
             logger.info("Palabra clave detectada!")
             if gui:
@@ -180,6 +181,7 @@ def loop_principal(gui=None):
 
 def main():
     """Función principal."""
+    from gui import crear_gui
     configurar_logging()
     _iniciar_ollama()
     atexit.register(_detener_ollama)

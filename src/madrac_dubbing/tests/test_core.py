@@ -1,17 +1,14 @@
-"""Test suite for MADRAC Dubbing Extension"""
-import pytest
+﻿import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 
-from src.madrac_dubbing.pipeline.models import (
+from madrac_dubbing.pipeline.models import (
     DubbingJob, DubbingConfig, DubbingStatus, Segment
 )
-from src.madrac_dubbing.utils.audio import timecode_to_ms, ms_to_timecode
+from madrac_dubbing.utils.audio import timecode_to_ms, ms_to_timecode
 
 
 class TestModels:
-    """Test data models"""
-
     def test_dubbing_config_creation(self):
         config = DubbingConfig(language='es', voice='female')
         assert config.language == 'es'
@@ -58,8 +55,6 @@ class TestModels:
 
 
 class TestAudioUtilities:
-    """Test audio utility functions"""
-
     def test_timecode_to_ms_basic(self):
         result = timecode_to_ms("00:00:05,000")
         assert result == 5000
@@ -80,27 +75,23 @@ class TestAudioUtilities:
 
 
 class TestTTSEngine:
-    """Test TTS engine"""
-
     @pytest.mark.asyncio
     async def test_edge_tts_initialization(self):
-        from src.madrac_dubbing.tts.edge_tts import EdgeTTSEngine
+        from madrac_dubbing.tts.edge_tts import EdgeTTSEngine
         engine = EdgeTTSEngine()
         assert engine is not None
         assert 'es' in engine.supported_languages
 
     def test_edge_tts_voice_selection(self):
-        from src.madrac_dubbing.tts.edge_tts import EdgeTTSEngine
+        from madrac_dubbing.tts.edge_tts import EdgeTTSEngine
         engine = EdgeTTSEngine()
-
         male_voice = engine._get_voice_for_language('es', 'male')
         assert 'Neural' in male_voice
-
         female_voice = engine._get_voice_for_language('es', 'female')
         assert 'Neural' in female_voice
 
     def test_tts_list_voices(self):
-        from src.madrac_dubbing.tts.edge_tts import EdgeTTSEngine
+        from madrac_dubbing.tts.edge_tts import EdgeTTSEngine
         engine = EdgeTTSEngine()
         voices = engine.list_voices('es')
         assert len(voices) > 0
@@ -108,26 +99,20 @@ class TestTTSEngine:
 
 
 class TestPipeline:
-    """Test dubbing pipeline"""
-
     def test_pipeline_initialization(self):
-        from src.madrac_dubbing.pipeline.dubbing_pipeline import DubbingPipeline
+        from madrac_dubbing.pipeline.dubbing_pipeline import DubbingPipeline
         pipeline = DubbingPipeline()
         assert pipeline is not None
 
-    @patch('src.madrac_dubbing.pipeline.dubbing_pipeline.extract_audio')
-    @patch('src.madrac_dubbing.pipeline.dubbing_pipeline.parse_srt_file')
-    @patch('src.madrac_dubbing.pipeline.dubbing_pipeline.sf')
+    @patch('madrac_dubbing.pipeline.dubbing_pipeline.extract_audio')
+    @patch('madrac_dubbing.pipeline.dubbing_pipeline.parse_srt_file')
+    @patch('madrac_dubbing.pipeline.dubbing_pipeline.sf')
     def test_pipeline_update_progress(self, mock_sf, mock_parse, mock_extract):
-        from src.madrac_dubbing.pipeline.dubbing_pipeline import DubbingPipeline
-
+        from madrac_dubbing.pipeline.dubbing_pipeline import DubbingPipeline
         progress_calls = []
-
         def capture_progress(job):
             progress_calls.append(job.progress_pct)
-
         pipeline = DubbingPipeline(on_progress=capture_progress)
-
         config = DubbingConfig(language='es')
         job = DubbingJob(
             job_id='test-1',
@@ -136,7 +121,6 @@ class TestPipeline:
             output_path=Path('/tmp/output.mkv'),
             config=config
         )
-
         pipeline._update(job, 50, "Test message")
         assert len(progress_calls) > 0
 

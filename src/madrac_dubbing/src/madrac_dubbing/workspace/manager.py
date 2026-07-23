@@ -15,6 +15,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 import logging
 
+try:
+    from madrac.core.paths import get_user_config_dir
+    _SHARED_CACHE = get_user_config_dir()
+except ImportError:
+    _SHARED_CACHE = None
+
 from .resources import (
     WorkspaceResource,
     ResourceType,
@@ -47,6 +53,7 @@ class WorkspaceManager:
         
         self.app_dir = Path(app_dir).resolve()
         self.workspace_root = self.app_dir / "plugins"
+
         self.plugins_root = self.app_dir / "plugins"
         # En AppImage o si app_dir es read-only, usar ~/.cache/madrac-dubbing/
         if "APPIMAGE" in os.environ or not os.access(str(self.app_dir), os.W_OK):

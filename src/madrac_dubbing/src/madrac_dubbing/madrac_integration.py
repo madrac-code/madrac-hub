@@ -20,7 +20,13 @@ from .workspace_manager import get_manager as _get_ws_manager
 
 logger = logging.getLogger("madrac.dubbing.integration")
 
-CONFIG_DIR = Path.home() / ".madrac"
+try:
+    from madrac.core.paths import get_user_config_dir
+    _SHARED_DIR = get_user_config_dir()
+except ImportError:
+    _SHARED_DIR = Path.home() / ".cache" / "madrac-subs"
+
+CONFIG_DIR = _SHARED_DIR
 CONFIG_FILE = CONFIG_DIR / "madrac-dubbing.json"
 
 DEFAULT_CONFIG = {

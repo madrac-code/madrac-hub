@@ -7,7 +7,7 @@ from pathlib import Path
 def _assistant_root() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys._MEIPASS)
-    return Path(__file__).resolve().parent.parent.parent.parent.parent.parent / "madrac_asistente"
+    return Path(__file__).resolve().parents[4] / "madrac_asistente"
 
 
 def _writable_dir() -> Path:

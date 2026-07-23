@@ -1,7 +1,7 @@
 # ADR-007 — Distribution Strategy: PyInstaller vs Nuitka
 
 **Date**: 2026-07-01  
-**Status**: DECISION PENDING (evidence gathering phase)  
+**Status**: Accepted — PyInstaller onefile confirmed as production strategy  
 **Decision Makers**: Engineering team  
 **Components Affected**: madrac-dubs build process
 
@@ -111,3 +111,18 @@ Start with Nuitka build attempt. If it works → adopt as new standard. If it fa
 
 **Risk**: Low (PyInstaller is always an option to revert to)
 
+---
+
+## Decision
+
+PyInstaller onefile is the confirmed distribution strategy for all MADRAC desktop components. This decision was made by default — the build works, 290 tests pass, the assistant runs integrated, and the .exe is the distributed artifact.
+
+**Current state**: MADRAC-SUBS.exe ~601 MB via madrac-subs-v3-onefile.spec
+
+Nuitka was never tested and is not a current priority.
+
+## Open Items (not blockers)
+
+- ADR-006 Option A still pending: adding demucs/remote/ to datas= in the .spec so Demucs AI works in the .exe. Current .exe uses DSP fallback only.
+- Future consideration: migrate to --onedir if startup time becomes a problem.
+- Nuitka remains documented as a future investigation path if PyInstaller limitations become critical.

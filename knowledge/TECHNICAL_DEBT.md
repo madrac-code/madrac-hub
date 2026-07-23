@@ -382,7 +382,11 @@
 **Impact**: Knowledge extraction is ad-hoc; hard to find lessons
 
 **Current State**:
-- LLAVE_001_errno22_winsock_asyncio.md created and versioned
+- ~~LLAVE_001~~ *(deleted in commit 8fd09f0 — Engineering Sprint 001.
+  Content was about errno 22 / Winsock / asyncio on Windows.
+  Key fix: WindowsSelectorEventLoopPolicy must be set before any
+  asyncio loop in Windows. See ADR-006 for current status.)* — file was
+  created and versioned, later deleted
 - No system for when/how to create new LLAVEs
 - No index or discovery mechanism
 

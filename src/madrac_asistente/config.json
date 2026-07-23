@@ -1,15 +1,14 @@
 {
-  "comentario": "Configuración principal del asistente Jarvis",
   "modelo_ia": {
     "tipo": "ollama",
     "opciones": {
       "ollama": {
-        "modelo": "qwen2.5:3b",
-        "base_url": "http://localhost:11434"
+        "modelo": "llama3",
+        "api_key": ""
       },
-      "claude": {
+      "gemini": {
         "api_key": "",
-        "modelo": "claude-3-5-sonnet-20241022"
+        "modelo": "gemini-2.0-flash"
       },
       "openai": {
         "api_key": "",
@@ -17,46 +16,36 @@
       }
     }
   },
-  "whisper": {
-    "modelo": "small",
-    "opciones": [
-      "tiny",
-      "base",
-      "small",
-      "medium"
-    ],
-    "device": "cpu",
-    "compute_type": "int8"
-  },
   "wakeword": {
-    "modelo": "hey_jarvis_v0.1.onnx",
-    "umbral": 0.35,
-    "framework": "onnx"
+    "habilitada": true,
+    "palabra": "jarvis"
+  },
+  "tts": {
+    "motor": "edge",
+    "voz": "es-MX-DaliaNeural",
+    "velocidad": 1.0
   },
   "audio": {
     "sample_rate": 16000,
-    "chunk_size": 1280,
     "duracion_grabacion": 5,
     "dispositivo_mic": null,
-    "idioma": "es"
+    "silenciar_durante_respuesta": true
   },
-  "tts": {
-    "motor": "powershell",
-    "voz": "Microsoft Sabina Desktop",
-    "opciones": [
-      "pyttsx3",
-      "powershell",
-      "azure"
-    ]
-  },
-  "carpetas": {
-    "musica": "~/Music",
-    "perfiles": "./perfiles",
-    "logs": "./logs"
+  "whisper": {
+    "device": "cpu",
+    "modelo": "base",
+    "compute_type": "int8"
   },
   "interfaz": {
-    "mostrar_gui": true,
+    "mostrar_gui": false,
     "tema": "dark"
   },
-  "setup_completado": true
+  "carpetas": {
+    "escritorio": "",
+    "documentos": "",
+    "descargas": "",
+    "musica": ""
+  },
+  "comentario": "Configuración generada automáticamente",
+  "setup_completado": false
 }
