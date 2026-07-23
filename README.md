@@ -22,11 +22,11 @@ runtime/            ← Future: Event Bus + IPC Layer (Phase 1+)
 
 ## Current Phase
 
-**Phase 0 — Knowledge Foundation**
+**Phase 3 — MCP Integration**
+Building the MCP server layer that exposes MADRAC capabilities as structured tools for internal LLM use and external agent access.
 
-Establishing the knowledge management system and documenting lessons learned before implementing the runtime layer.
-
-See `development/phases/PHASE_0_FOUNDATION.md` for details.
+Previous: Phase 2 complete — see `development/phases/PHASE_2_INTEGRATION.md`
+Next: See `development/phases/PHASE_3_MCP.md` (created in Phase B)
 
 ## Quick Start for AI Agents
 
