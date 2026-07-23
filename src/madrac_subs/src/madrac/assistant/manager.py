@@ -93,6 +93,66 @@ class AssistantManager(QObject):
             self.log_message.emit("Assistant stopped")
             logger.info("Assistant loop ended")
 
+    def execute_action(self, accion: str, parametro: str = "") -> Optional[str]:
+        """Execute a named assistant action via the running asistente module."""
+        if not self._running:
+            return None
+        try:
+            import asistente
+            handler = getattr(asistente, f"ejecutar_{accion}", None)
+            if handler is None:
+                handler = getattr(asistente, accion, None)
+            if handler is None:
+                logger.warning("Unknown assistant action: %s", accion)
+                return None
+            return handler(parametro) if parametro else handler()
+        except Exception as e:
+            logger.error("execute_action error: %s", e)
+            return str(e)
+
+    def start_mcp_server(
+        self,
+        queue_manager: Any = None,
+        worker: Any = None,
+        dubbing_manager: Any = None,
+    ) -> None:
+        """Start the MCP server in a background thread (stdio transport).
+
+        Uses provided managers or discovers singletons from the codebase.
+        The server runs until stdin closes or the process exits.
+        """
+        if getattr(self, "_mcp_thread", None) and self._mcp_thread.is_alive():
+            logger.warning("MCP server already running")
+            return
+
+        from ..config import get_config_manager
+        state: dict[str, Any] = {
+            "queue_manager": queue_manager,
+            "worker": worker,
+            "config_manager": get_config_manager(),
+            "dubbing_manager": dubbing_manager,
+            "assistant_manager": self,
+        }
+
+        from ..mcp.server import run_server
+
+        self._mcp_thread = threading.Thread(
+            target=run_server,
+            args=(state,),
+            daemon=True,
+            name="mcp-stdio",
+        )
+        self._mcp_thread.start()
+        logger.info("MCP server thread started (stdio)")
+
+    def stop_mcp_server(self) -> None:
+        """Signal the MCP server to stop. For stdio transport, closing
+        stdin is the cleanest approach; daemon thread suffices otherwise."""
+        thread = getattr(self, "_mcp_thread", None)
+        if thread and thread.is_alive():
+            logger.info("MCP server thread will exit on daemon shutdown")
+        self._mcp_thread = None
+
     def _detener_ollama(self):
         try:
             import asistente

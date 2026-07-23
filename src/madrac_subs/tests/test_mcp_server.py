@@ -1,30 +1,61 @@
 """
 Tests for MADRAC MCP Server.
 
-Tests use a mock app_state to avoid requiring a running MADRAC instance.
+Uses real QueueEntry/ProcessingState from madrac.pipeline.queue and mocks for
+QueueManager, DubbingManager, ConfigManager, PipelineWorker, AssistantManager.
 """
 import pytest
 from unittest.mock import MagicMock
+from pathlib import Path
+
+from madrac.pipeline.queue import QueueEntry, ProcessingState
 
 
 @pytest.fixture
 def mock_queue_manager():
     qm = MagicMock()
-    qm.pending_count.return_value = 2
-    qm.active_count.return_value = 1
-    qm.completed_count.return_value = 10
-    qm.total_count.return_value = 13
-    qm.pause.return_value = None
-    qm.add_file.return_value = "job_001"
+    entries = [
+        QueueEntry.new("/videos/a.mp4"),
+        QueueEntry.new("/videos/b.mp4"),
+        QueueEntry.new("/videos/c.mp4"),
+    ]
+    entries[0].state = ProcessingState.PENDING
+    entries[1].state = ProcessingState.PROCESSING
+    entries[2].state = ProcessingState.COMPLETED
+
+    # Add a couple more completed ones
+    for _ in range(7):
+        e = QueueEntry.new("/videos/x.mp4")
+        e.state = ProcessingState.COMPLETED
+        entries.append(e)
+    # One failed
+    e = QueueEntry.new("/videos/fail.mp4")
+    e.state = ProcessingState.FAILED
+    entries.append(e)
+
+    qm.list_all.return_value = entries
+
+    new_entry = QueueEntry.new("/videos/new.mp4")
+    qm.add.return_value = new_entry
     return qm
+
+
+@pytest.fixture
+def mock_worker():
+    w = MagicMock()
+    w.pause = MagicMock()
+    w.resume = MagicMock()
+    return w
 
 
 @pytest.fixture
 def mock_dubbing_manager():
     dm = MagicMock()
-    dm.get_status.return_value = {"status": "running", "progress": 0.5}
-    dm.get_all_status.return_value = []
-    dm.start_job.return_value = "dub_001"
+    dm._process = MagicMock()
+    dm._process.poll.return_value = None  # subprocess is running
+    dm.poll_job.return_value = {"status": "running", "progress_pct": 50}
+    dm.submit_job.return_value = "dub_001"
+    dm.launch_dubs.return_value = True
     return dm
 
 
@@ -36,20 +67,22 @@ def mock_assistant_manager():
 
 
 @pytest.fixture
-def mock_config():
-    config = MagicMock()
-    config.to_dict.return_value = {"whisper": {"modelo": "medium"}}
-    return config
+def mock_config_manager():
+    cfg = MagicMock()
+    cfg.get_all.return_value = {"whisper": {"modelo": "medium"}, "version": 3}
+    cfg.get.return_value = "medium"
+    return cfg
 
 
 @pytest.fixture
-def app_state(mock_queue_manager, mock_dubbing_manager,
-              mock_assistant_manager, mock_config):
+def app_state(mock_queue_manager, mock_worker, mock_dubbing_manager,
+              mock_assistant_manager, mock_config_manager):
     return {
         "queue_manager": mock_queue_manager,
+        "worker": mock_worker,
         "dubbing_manager": mock_dubbing_manager,
         "assistant_manager": mock_assistant_manager,
-        "config": mock_config,
+        "config_manager": mock_config_manager,
     }
 
 
@@ -59,10 +92,11 @@ class TestQueueTools:
         from madrac.mcp.tools.queue import get_queue_status
         tool = get_queue_status(app_state)
         result = await tool()
-        assert result["pendientes"] == 2
+        assert result["pendientes"] == 1
         assert result["en_progreso"] == 1
-        assert result["completados"] == 10
-        assert result["total"] == 13
+        assert result["completados"] == 8
+        assert result["fallidos"] == 1
+        assert result["total"] == 11
 
     @pytest.mark.asyncio
     async def test_get_queue_status_no_manager(self):
@@ -77,22 +111,34 @@ class TestQueueTools:
         tool = pause_processing(app_state)
         result = await tool()
         assert result is True
+        app_state["worker"].pause.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_pause_processing_no_manager(self):
+    async def test_pause_processing_no_worker(self):
         from madrac.mcp.tools.queue import pause_processing
         tool = pause_processing({})
         result = await tool()
         assert result is False
 
+    @pytest.mark.asyncio
+    async def test_resume_processing_returns_true(self, app_state):
+        from madrac.mcp.tools.queue import resume_processing
+        tool = resume_processing(app_state)
+        result = await tool()
+        assert result is True
+        app_state["worker"].resume.assert_called_once()
+
 
 class TestTranscriptionTools:
     @pytest.mark.asyncio
-    async def test_transcribe_file_queues_job(self, app_state):
+    async def test_transcribe_file_queues_job(self, app_state, tmp_path):
         from madrac.mcp.tools.transcription import transcribe_file
+        video = tmp_path / "test.mp4"
+        video.write_text("fake video content")
         tool = transcribe_file(app_state)
-        result = await tool("/path/to/video.mp4", "es")
-        assert "job_001" in result
+        result = await tool(str(video), "es")
+        assert "queued" in result.lower()
+        app_state["queue_manager"].add.assert_called_once_with(str(video))
 
     @pytest.mark.asyncio
     async def test_transcribe_file_no_manager(self):
@@ -100,6 +146,14 @@ class TestTranscriptionTools:
         tool = transcribe_file({})
         result = await tool("/path/to/video.mp4")
         assert "Error" in result
+
+    @pytest.mark.asyncio
+    async def test_transcribe_file_not_found(self, app_state):
+        from madrac.mcp.tools.transcription import transcribe_file
+        tool = transcribe_file(app_state)
+        result = await tool("/nonexistent/file.mp4")
+        assert "Error" in result
+        app_state["queue_manager"].add.assert_not_called()
 
 
 class TestAssistantTools:
@@ -109,6 +163,7 @@ class TestAssistantTools:
         tool = execute_assistant_action(app_state)
         result = await tool("obtener_hora")
         assert result == "OK"
+        app_state["assistant_manager"].execute_action.assert_called_once_with("obtener_hora", "")
 
     @pytest.mark.asyncio
     async def test_execute_action_no_manager(self):
@@ -120,11 +175,16 @@ class TestAssistantTools:
 
 class TestDubbingTools:
     @pytest.mark.asyncio
-    async def test_start_dubbing_returns_job_id(self, app_state):
+    async def test_start_dubbing_returns_job_id(self, app_state, tmp_path):
         from madrac.mcp.tools.dubbing import start_dubbing
+        video = tmp_path / "movie.mp4"
+        srt = tmp_path / "movie.srt"
+        video.write_text("video")
+        srt.write_text("1\n00:00:01,000 --> 00:00:04,000\nHello")
         tool = start_dubbing(app_state)
-        result = await tool("/path/to/video.mp4", "es")
+        result = await tool(str(video), str(srt), str(tmp_path / "dubbed.mp4"), "es")
         assert "dub_001" in result
+        app_state["dubbing_manager"].submit_job.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_dubbing_status_with_job_id(self, app_state):
@@ -132,6 +192,7 @@ class TestDubbingTools:
         tool = get_dubbing_status(app_state)
         result = await tool("dub_001")
         assert result["status"] == "running"
+        app_state["dubbing_manager"].poll_job.assert_called_once_with("dub_001")
 
 
 class TestConfigTools:
@@ -141,6 +202,14 @@ class TestConfigTools:
         tool = read_config(app_state)
         result = await tool()
         assert "whisper" in result
+        assert result["whisper"]["modelo"] == "medium"
+
+    @pytest.mark.asyncio
+    async def test_read_config_by_key(self, app_state):
+        from madrac.mcp.tools.config import read_config
+        tool = read_config(app_state)
+        result = await tool("whisper.modelo")
+        assert result["value"] == "medium"
 
     @pytest.mark.asyncio
     async def test_read_config_no_manager(self):
@@ -148,3 +217,11 @@ class TestConfigTools:
         tool = read_config({})
         result = await tool()
         assert "error" in result
+
+
+class TestServerCreation:
+    def test_create_server_returns_fastmcp(self, app_state):
+        from madrac.mcp.server import create_server
+        server = create_server(app_state)
+        assert server is not None
+        assert server.name == "madrac-subs"
