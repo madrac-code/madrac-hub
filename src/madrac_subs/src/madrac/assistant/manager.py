@@ -126,13 +126,28 @@ class AssistantManager(QObject):
             return
 
         from ..config import get_config_manager
+        from collections import deque
+        import logging as _logging
+
+        log_buffer: deque[dict[str, str]] = deque(maxlen=1000)
         state: dict[str, Any] = {
             "queue_manager": queue_manager,
             "worker": worker,
             "config_manager": get_config_manager(),
             "dubbing_manager": dubbing_manager,
             "assistant_manager": self,
+            "log_buffer": log_buffer,
         }
+        # Capture madrac logs into the ring buffer
+        _buf_handler = _logging.Handler()
+        _buf_handler.emit = lambda r: log_buffer.append({
+            "time": _logging.Formatter().formatTime(r),
+            "level": r.levelname,
+            "name": r.name,
+            "message": r.getMessage(),
+        })
+        _buf_handler.setLevel(_logging.DEBUG)
+        _logging.getLogger("madrac").addHandler(_buf_handler)
 
         from ..mcp.server import run_server
 

@@ -219,6 +219,129 @@ class TestConfigTools:
         assert "error" in result
 
 
+class TestQueueResources:
+    @pytest.mark.asyncio
+    async def test_estado_resource_returns_summary(self, app_state):
+        from madrac.mcp.resources.queue import get_queue_estado_resource
+        import json
+        handler = get_queue_estado_resource(app_state)
+        raw = await handler()
+        data = json.loads(raw)
+        assert data["pendientes"] == 1
+        assert data["en_progreso"] == 1
+        assert data["completados"] == 8
+        assert data["fallidos"] == 1
+        assert data["total"] == 11
+        assert len(data["items"]) > 0
+        assert "id" in data["items"][0]
+        assert "state" in data["items"][0]
+
+    @pytest.mark.asyncio
+    async def test_estado_resource_no_manager(self):
+        from madrac.mcp.resources.queue import get_queue_estado_resource
+        import json
+        handler = get_queue_estado_resource({})
+        raw = await handler()
+        data = json.loads(raw)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_progreso_resource_returns_item(self, app_state):
+        from madrac.mcp.resources.queue import get_queue_progreso_resource
+        import json
+        # Find the first entry's id from the mock
+        from madrac.pipeline.queue import ProcessingState
+        all_items = app_state["queue_manager"].list_all()
+        target_id = all_items[0].id
+        handler = get_queue_progreso_resource(app_state)
+        raw = await handler(target_id)
+        data = json.loads(raw)
+        assert data["id"] == target_id
+        assert "state" in data
+        assert "filename" in data
+
+    @pytest.mark.asyncio
+    async def test_progreso_resource_not_found(self, app_state):
+        from madrac.mcp.resources.queue import get_queue_progreso_resource
+        import json
+        handler = get_queue_progreso_resource(app_state)
+        raw = await handler("nonexistent_id")
+        data = json.loads(raw)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_progreso_resource_no_manager(self):
+        from madrac.mcp.resources.queue import get_queue_progreso_resource
+        import json
+        handler = get_queue_progreso_resource({})
+        raw = await handler("any_id")
+        data = json.loads(raw)
+        assert "error" in data
+
+
+class TestConfigResources:
+    @pytest.mark.asyncio
+    async def test_actual_resource_returns_config(self, app_state):
+        from madrac.mcp.resources.config import get_config_actual_resource
+        import json
+        handler = get_config_actual_resource(app_state)
+        raw = await handler()
+        data = json.loads(raw)
+        assert data["whisper"]["modelo"] == "medium"
+        assert data["version"] == 3
+
+    @pytest.mark.asyncio
+    async def test_actual_resource_no_manager(self):
+        from madrac.mcp.resources.config import get_config_actual_resource
+        import json
+        handler = get_config_actual_resource({})
+        raw = await handler()
+        data = json.loads(raw)
+        assert "error" in data
+
+
+class TestLogResources:
+    @pytest.mark.asyncio
+    async def test_ultimos_returns_entries(self, app_state):
+        from madrac.mcp.resources.logs import get_ultimos_logs_resource
+        from collections import deque
+        import json
+        buf = deque(maxlen=100)
+        buf.append({"time": "t1", "level": "INFO", "name": "test", "message": "hello"})
+        buf.append({"time": "t2", "level": "WARN", "name": "test", "message": "world"})
+        app_state["log_buffer"] = buf
+        handler = get_ultimos_logs_resource(app_state)
+        raw = await handler(10)
+        data = json.loads(raw)
+        assert len(data) == 2
+        assert data[0]["message"] == "hello"
+
+    @pytest.mark.asyncio
+    async def test_ultimos_no_buffer(self, app_state):
+        from madrac.mcp.resources.logs import get_ultimos_logs_resource
+        import json
+        handler = get_ultimos_logs_resource(app_state)
+        raw = await handler(10)
+        data = json.loads(raw)
+        assert "error" in data
+        assert "note" in data
+
+    @pytest.mark.asyncio
+    async def test_ultimos_respects_n(self, app_state):
+        from madrac.mcp.resources.logs import get_ultimos_logs_resource
+        from collections import deque
+        import json
+        buf = deque(maxlen=100)
+        for i in range(10):
+            buf.append({"time": f"t{i}", "level": "INFO", "name": "t", "message": str(i)})
+        app_state["log_buffer"] = buf
+        handler = get_ultimos_logs_resource(app_state)
+        raw = await handler(3)
+        data = json.loads(raw)
+        assert len(data) == 3
+        assert data[-1]["message"] == "9"
+
+
 class TestServerCreation:
     def test_create_server_returns_fastmcp(self, app_state):
         from madrac.mcp.server import create_server

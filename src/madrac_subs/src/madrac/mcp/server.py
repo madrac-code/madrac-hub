@@ -20,6 +20,9 @@ from .tools.translation import translate_subtitles
 from .tools.assistant import execute_assistant_action
 from .tools.config import read_config
 from .tools.dubbing import get_dubbing_status, start_dubbing
+from .resources.queue import get_queue_estado_resource, get_queue_progreso_resource
+from .resources.config import get_config_actual_resource
+from .resources.logs import get_ultimos_logs_resource
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +30,15 @@ _app_state: dict[str, Any] = {}
 
 
 def create_server(app_state: dict[str, Any]) -> FastMCP:
-    """Create a FastMCP server with all MADRAC tools registered.
+    """Create a FastMCP server with all MADRAC tools and resources registered.
 
     Expected app_state keys:
-        queue_manager    — QueueManager instance
-        worker           — PipelineWorker instance (for pause/resume)
-        config_manager   — ConfigManager instance
-        dubbing_manager  — DubbingManager instance (optional)
+        queue_manager     — QueueManager instance
+        worker            — PipelineWorker instance (for pause/resume)
+        config_manager    — ConfigManager instance
+        dubbing_manager   — DubbingManager instance (optional)
         assistant_manager — AssistantManager instance (optional)
+        log_buffer        — collections.deque ring buffer (optional)
     """
     global _app_state
     _app_state = app_state
@@ -44,6 +48,7 @@ def create_server(app_state: dict[str, Any]) -> FastMCP:
         instructions="MADRAC subtitle engine — transcription, translation, dubbing tools",
     )
 
+    # ── Tools ─────────────────────────────────────────────────────
     mcp.tool(name="get_queue_status")(get_queue_status(_app_state))
     mcp.tool(name="pause_processing")(pause_processing(_app_state))
     mcp.tool(name="resume_processing")(resume_processing(_app_state))
@@ -54,7 +59,32 @@ def create_server(app_state: dict[str, Any]) -> FastMCP:
     mcp.tool(name="get_dubbing_status")(get_dubbing_status(_app_state))
     mcp.tool(name="start_dubbing")(start_dubbing(_app_state))
 
-    logger.info("MADRAC MCP server created with %d tools", 9)
+    # ── Resources ─────────────────────────────────────────────────
+    mcp.resource(
+        "queue://estado",
+        name="Queue State",
+        description="Full queue summary with item details",
+    )(get_queue_estado_resource(_app_state))
+
+    mcp.resource(
+        "queue://progreso/{job_id}",
+        name="Queue Progress",
+        description="Single queue item progress by job ID",
+    )(get_queue_progreso_resource(_app_state))
+
+    mcp.resource(
+        "config://actual",
+        name="Current Config",
+        description="Full MADRAC configuration",
+    )(get_config_actual_resource(_app_state))
+
+    mcp.resource(
+        "log://ultimos/{n}",
+        name="Recent Logs",
+        description="Last N log entries from ring buffer",
+    )(get_ultimos_logs_resource(_app_state))
+
+    logger.info("MADRAC MCP server created (9 tools, 4 resources)")
     return mcp
 
 
