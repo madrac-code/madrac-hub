@@ -448,7 +448,7 @@ class TraductorGemini(TraductorBase):
 		self,
 		idioma_destino: str = "es",
 		api_key: Optional[str] = None,
-		modelo: str = "gemini-2.0-flash",
+		modelo: str = "gemini-2.5-flash",
 	):
 		"""
 		Inicializa Gemini.
@@ -459,11 +459,11 @@ class TraductorGemini(TraductorBase):
 			modelo: Modelo de Gemini a usar
 		"""
 		super().__init__(idioma_destino)
-		self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
+		self.api_key = api_key or os.getenv("MADRAC_GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 		self.modelo = modelo
 
 		if not self.api_key:
-			raise ValueError("GOOGLE_API_KEY no configurada")
+			raise ValueError("MADRAC_GEMINI_API_KEY / GOOGLE_API_KEY no configurada")
 
 	def _call_gemini(self, prompt: str) -> str:
 		"""Llama a Gemini con reintentos en 429 (backoff exponencial)"""

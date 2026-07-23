@@ -69,7 +69,7 @@ _ENUMS = {
     "whisper.task": {"transcribe", "translate"},
     "traduccion.motor": {"marianmt", "gemini", "libretranslate", "google"},
     "traduccion.idioma_destino": {"es", "en", "fr", "de", "it", "pt"},
-    "motores_traduccion.gemini.modelo": {"gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-3.5-flash"},
+    "motores_traduccion.gemini.modelo": {"gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro", "gemini-1.5-flash"},
 }
 
 

@@ -39,7 +39,6 @@ DEFAULTS = {
             "timeout_lote_s": 120,
         },
     "gemini": {
-        "api_key": "",
         "modelo": "gemini-2.5-flash",
     },
         "libretranslate": {

@@ -116,3 +116,7 @@ test_*.mkv
 
 src/madrac_dubbing/.cache/
 src/madrac_dubbing/plugins/
+
+# Config files — may contain API keys
+src/madrac_subs/config.json
+src/madrac_asistente/config.json
