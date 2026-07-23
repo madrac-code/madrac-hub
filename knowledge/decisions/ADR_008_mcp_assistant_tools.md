@@ -1,7 +1,7 @@
 # ADR-008 — MCP Server for Assistant Tools and External Agency
 
 **Date**: 2026-07-23
-**Status**: Proposed — awaiting implementation decision
+**Status**: Implemented (Phase 3A — stdio MCP server)
 **Deciders**: Human
 **Components affected**: ASISTENTE, SUBS, future RECON
 
@@ -70,3 +70,18 @@ PENDING — human to decide between Options A, B, or C.
 - New dependency: mcp SDK (pip install mcp, pure Python, lightweight)
 - Must not break existing ejecutar_accion() in core/actions.py
 - Must not increase .exe size significantly (mcp SDK is pure Python)
+
+## Windows Deployment Note
+
+Claude Desktop on Windows ignores the `cwd` field in
+claude_desktop_config.json. Always use absolute paths in `args`.
+
+Working config:
+```json
+{
+  "command": "D:\\madrac-hub\\venv\\Scripts\\python.exe",
+  "args": ["D:\\madrac-hub\\src\\madrac_subs\\run_mcp.py"]
+}
+```
+
+The `cwd` field can be omitted — it has no effect on Windows.
