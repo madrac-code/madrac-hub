@@ -26,7 +26,7 @@ runtime/            ← Future: Event Bus + IPC Layer (Phase 1+)
 Building the MCP server layer that exposes MADRAC capabilities as structured tools for internal LLM use and external agent access.
 
 Previous: Phase 2 complete — see `development/phases/PHASE_2_INTEGRATION.md`
-Next: See `development/phases/PHASE_3_MCP.md` (created in Phase B)
+Next: See `development/phases/PHASE_3_MCP.md`
 
 ## Quick Start for AI Agents
 
