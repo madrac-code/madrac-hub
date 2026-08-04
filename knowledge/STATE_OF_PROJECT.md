@@ -3,7 +3,7 @@
 **Version**: 1.0  
 **Date**: 2026-07-24  
 **Current Phase**: Phase 3 — MCP Integration (Phase 3A Complete, Phase 3B/3C Planned)  
-**Last Commit**: `cc4ac21` (Phase 3B — Ollama tool calling)
+**Last Commit**: `2325dec` (Phase 3C — HTTP transport)
 **Target Audience**: New developers, AI agents, project maintainers  
 
 ---
@@ -448,7 +448,7 @@ VIDEO INPUT
 | **Parser** | ✅ | `parse_video_filename()` + confidence + normalization_version |
 | **Fingerprints** | ✅ | SHA256 video + ffprobe metadata + parser metadata |
 | **Dubbing Integration** | ✅ | "Dub Now" button → DubDialog → DUBS API → Progress polling |
-| **MCP Server** | ✅ Phase 3B | FastMCP stdio (9 tools, 4 resources) + Ollama tool calling (qwen3.5:9b) |
+| **MCP Server** | ✅ Phase 3C | stdio (Claude Desktop) + HTTP 127.0.0.1:7654 (token auth) + Ollama tool calling (qwen3.5:9b) |
 | **Assistant Integration** | ✅ Phase 2C | AssistantManager (in-process QThread) + ConfigDialog |
 | **Build System** | ✅ | PyInstaller onefile ~601 MB, CI/CD GitHub Actions |
 
@@ -496,6 +496,7 @@ VIDEO INPUT
 | CI/CD GitHub Actions | Phase 2 | 2026-07-23 |
 | MCP Server Phase 3A (stdio) | Phase 3A | 2026-07-24 |
 | MCP Phase 3B — Ollama Tool Calling | Phase 3B | cc4ac21 / 2026-07-24 |
+| MCP Phase 3C — HTTP Transport | Phase 3C | 2325dec / 2026-07-24 |
 | Security: Gemini API Key → Env Var | — | 2026-07-24 |
 | Model Name Fix (gemini-2.5-flash) | — | 2026-07-24 |
 
@@ -504,8 +505,7 @@ VIDEO INPUT
 | Item | Fase | Avance | Bloqueadores |
 |------|------|--------|--------------|
 | MCP Phase 3B — Ollama Tool Calling | Phase 3B | ✅ COMPLETE | — |
-| MCP Phase 3C — Streamable HTTP | Phase 3C | 0% | Requiere 3B |
-| Event Bus / MADRAC-CORE | Phase 3+ | 0% | Arquitectura pendiente |
+| Event Bus / MADRAC-CORE (IPC Layer) | Phase 4 | 0% | Arquitectura pendiente |
 
 ### ⏳ PENDIENTE (Ordenado por Prioridad Real)
 
@@ -514,7 +514,6 @@ VIDEO INPUT
 | **P0** | Tests de aislamiento RLS (cross-user) | Supabase | 2-3 días | ADR-002 checklist |
 | **P1** | Event Bus / MADRAC-CORE (IPC Layer) | Phase 3+ | 2-3 semanas | Arquitectura |
 | **P1** | PyInstaller Fix Demucs (ADR-006 Opción A) | Build | 1 día | `datas=` en .spec |
-| **P1** | MCP 3C — Streamable HTTP (puerto 7654) | Phase 3C | 1 semana | 3B completado |
 | **P2** | Penetration Testing Community | Supabase | 1 semana | RLS tests passing |
 | **P2** | Web: PWA / Offline Support | Web | 1 semana | Service Workers |
 | **P2** | Desktop: Auto-update (WinSparkle/NSIS) | Build | 3 días | Code signing |
@@ -618,6 +617,7 @@ VIDEO INPUT
 | `GOOGLE_API_KEY` | Gemini API (fallback legacy) | No |
 | `MADRAC_DUBS_HOST` | Host DUBS API (default 127.0.0.1) | No |
 | `MADRAC_DUBS_PORT` | Puerto DUBS API (default 5000) | No |
+| `MADRAC_MCP_PORT` | Puerto HTTP del MCP server (default: 7654) | No |
 | `MADRAC_INTEGRATION_AVAILABLE` | Force integration mode (testing) | No |
 | `MADRAC_OPERATING_MODE` | `standalone` | `integrated` | No |
 | `EDGE_TTS_VOICE` | Voz por defecto dubbing | No |
