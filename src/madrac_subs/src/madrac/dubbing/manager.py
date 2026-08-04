@@ -76,8 +76,10 @@ class DubbingManager(QObject):
 
         # Buscar madrac_dubbing/src/ (contiene el package con __main__.py)
         src_candidates = [
-            base / "src" / "madrac_dubbing" / "src",        # dev: project_root/src/...
-            base / "opt" / "madrac-hub" / "src" / "madrac_dubbing" / "src",  # AppImage
+            base / "src" / "madrac_dubbing" / "src",        # dev: monorepo layout
+            base / "src" / "madrac_dubbing",                 # dev: standalone layout
+            base / "opt" / "madrac-hub" / "src" / "madrac_dubbing" / "src",  # AppImage monorepo
+            base / "opt" / "madrac-hub" / "src" / "madrac_dubbing",         # AppImage standalone
         ]
 
         src_path = None

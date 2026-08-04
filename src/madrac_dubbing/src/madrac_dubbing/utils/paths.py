@@ -4,13 +4,9 @@ import shutil
 
 
 def get_app_dir() -> Path:
-    try:
-        from madrac.core.paths import get_project_root
-        return get_project_root()
-    except ImportError:
-        if getattr(sys, "frozen", False):
-            return Path(sys.executable).parent
-        return Path(__file__).resolve().parents[5]
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent
+    return Path(__file__).resolve().parents[5]
 
 
 APP_DIR = get_app_dir()

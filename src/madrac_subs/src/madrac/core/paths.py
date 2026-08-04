@@ -24,7 +24,7 @@ def get_base_path() -> Path:
     if is_frozen() and hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS)
     # Dev mode: go up from src/madrac/core/paths.py to project root
-    return Path(__file__).parent.parent.parent.parent
+    return Path(__file__).parent.parent.parent.parent.parent.parent
 
 
 def get_project_root() -> Path:
