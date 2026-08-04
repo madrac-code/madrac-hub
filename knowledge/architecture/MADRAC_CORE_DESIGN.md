@@ -1,3 +1,6 @@
+**See also**: `knowledge/STATE_OF_PROJECT.md` — current source
+of truth for the full ecosystem state (updated 2026-07-24)
+
 # INVESTIGACIÓN CRÍTICA EXTERNA SOBRE EL PROYECTO MADRAC
 ## Informe para Comité Académico y Revisión Arquitectónica
 
