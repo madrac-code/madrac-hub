@@ -1,7 +1,7 @@
 # ADR-008 — MCP Server for Assistant Tools and External Agency
 
 **Date**: 2026-07-23
-**Status**: Implemented (Phase 3A — stdio MCP server)
+**Status**: Implemented — Phase 3A complete (stdio), Phase 3B complete (Ollama tool calling)
 **Deciders**: Human
 **Components affected**: ASISTENTE, SUBS, future RECON
 
@@ -63,7 +63,14 @@ These will be exposed as MCP tools once recon is implemented. MCP is the integra
 
 ## Decision
 
-PENDING — human to decide between Options A, B, or C.
+Option A (Full MCP Server) — implemented.
+
+FastMCP stdio server running as subprocess of MADRAC-SUBS.
+9 tools + 4 resources registered.
+Claude Desktop connected via run_mcp.py absolute path launcher.
+Ollama tool calling active with qwen3.5:9b (Phase 3B).
+
+Phase 3C (Streamable HTTP, port 7654) — planned, not started.
 
 ## Constraints
 
@@ -85,3 +92,13 @@ Working config:
 ```
 
 The `cwd` field can be omitted — it has no effect on Windows.
+
+## Implementation History
+
+| Phase | Commit | Date | Description |
+|-------|--------|------|-------------|
+| 3A | 28fad92 | 2026-07-23 | MCP server + 9 tools + 4 resources |
+| 3A | d4d6683 | 2026-07-23 | run_mcp.py launcher |
+| 3A | 435333c | 2026-07-24 | Absolute path fix for Claude Desktop |
+| 3B | cc4ac21 | 2026-07-24 | Ollama tool calling + tool_schemas.py |
+| 3B | [last]  | 2026-07-24 | Model config fix + path separation |

@@ -3,7 +3,7 @@
 **Version**: 1.0  
 **Date**: 2026-07-24  
 **Current Phase**: Phase 3 — MCP Integration (Phase 3A Complete, Phase 3B/3C Planned)  
-**Last Commit**: `53b5df7` (fix(security): move Gemini API key to env var + fix model name)  
+**Last Commit**: `cc4ac21` (Phase 3B — Ollama tool calling)
 **Target Audience**: New developers, AI agents, project maintainers  
 
 ---
@@ -16,7 +16,7 @@
 |------------|-------------|-------------|--------|
 | **madrac-subs** | `github.com/madrac-code/madrac-subs` | Motor de subtítulos: Whisper + MarianMT + PySide6 UI | v3.0.0-rc1 |
 | **madrac-subs-web** | `github.com/madrac-code/madrac-subs-web` | Frontend web: Next.js 14 + Vercel + Supabase | v2.x (producción) |
-| **madrac-asistente** | `github.com/madrac-code/madrac-asistente` | Asistente de voz: Ollama (llama3) + JARVIS | v3.2.0 |
+| **madrac-asistente** | `github.com/madrac-code/madrac-asistente` | Asistente de voz: Ollama (qwen3.5:9b) + JARVIS | v3.2.0 |
 | **madrac-dubs** | `github.com/madrac-code/madrac-dubs` | Motor de doblaje: Edge TTS + Demucs + Flask API | v1.0-rc1 |
 | **madrac-hub** | `github.com/madrac-code/madrac-hub` | Coordinador central: knowledge base + build integrado | Phase 0 |
 
@@ -448,7 +448,7 @@ VIDEO INPUT
 | **Parser** | ✅ | `parse_video_filename()` + confidence + normalization_version |
 | **Fingerprints** | ✅ | SHA256 video + ffprobe metadata + parser metadata |
 | **Dubbing Integration** | ✅ | "Dub Now" button → DubDialog → DUBS API → Progress polling |
-| **MCP Server** | ✅ Phase 3A | FastMCP stdio (9 tools, 4 resources) — `run_mcp.py` |
+| **MCP Server** | ✅ Phase 3B | FastMCP stdio (9 tools, 4 resources) + Ollama tool calling (qwen3.5:9b) |
 | **Assistant Integration** | ✅ Phase 2C | AssistantManager (in-process QThread) + ConfigDialog |
 | **Build System** | ✅ | PyInstaller onefile ~601 MB, CI/CD GitHub Actions |
 
@@ -495,6 +495,7 @@ VIDEO INPUT
 | Hybrid Monorepo (HUB src/) | ADR-010 | 2026-07-23 |
 | CI/CD GitHub Actions | Phase 2 | 2026-07-23 |
 | MCP Server Phase 3A (stdio) | Phase 3A | 2026-07-24 |
+| MCP Phase 3B — Ollama Tool Calling | Phase 3B | cc4ac21 / 2026-07-24 |
 | Security: Gemini API Key → Env Var | — | 2026-07-24 |
 | Model Name Fix (gemini-2.5-flash) | — | 2026-07-24 |
 
@@ -502,7 +503,7 @@ VIDEO INPUT
 
 | Item | Fase | Avance | Bloqueadores |
 |------|------|--------|--------------|
-| MCP Phase 3B — Ollama Tool Calling | Phase 3B | 0% | Requiere 3A validado en Claude Desktop |
+| MCP Phase 3B — Ollama Tool Calling | Phase 3B | ✅ COMPLETE | — |
 | MCP Phase 3C — Streamable HTTP | Phase 3C | 0% | Requiere 3B |
 | Event Bus / MADRAC-CORE | Phase 3+ | 0% | Arquitectura pendiente |
 
@@ -511,7 +512,6 @@ VIDEO INPUT
 | Prioridad | Item | Fase | Esfuerzo | Dependencias |
 |-----------|------|------|----------|--------------|
 | **P0** | Tests de aislamiento RLS (cross-user) | Supabase | 2-3 días | ADR-002 checklist |
-| **P0** | MCP 3B — Ollama Tool Calling | Phase 3B | 1 semana | 3A validado en Claude Desktop |
 | **P1** | Event Bus / MADRAC-CORE (IPC Layer) | Phase 3+ | 2-3 semanas | Arquitectura |
 | **P1** | PyInstaller Fix Demucs (ADR-006 Opción A) | Build | 1 día | `datas=` en .spec |
 | **P1** | MCP 3C — Streamable HTTP (puerto 7654) | Phase 3C | 1 semana | 3B completado |
