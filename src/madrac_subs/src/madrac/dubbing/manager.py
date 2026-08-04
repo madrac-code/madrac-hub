@@ -74,23 +74,25 @@ class DubbingManager(QObject):
         python_path = Path(self._dubs_python_path).resolve()
         base = python_path.parent.parent.parent
 
-        # Buscar madrac_dubbing/src/ (contiene el package con __main__.py)
-        src_candidates = [
+        # Buscar el directorio raíz de PYTHONPATH donde madrac_dubbing sea importable
+        # Monorepo: PYTHONPATH=.../src/madrac_dubbing/src → package en .../src/madrac_dubbing/src/madrac_dubbing
+        # Standalone: PYTHONPATH=.../src → package en .../src/madrac_dubbing
+        pythonpath_candidates = [
             base / "src" / "madrac_dubbing" / "src",        # dev: monorepo layout
-            base / "src" / "madrac_dubbing",                 # dev: standalone layout
+            base / "src",                                  # dev: standalone layout
             base / "opt" / "madrac-hub" / "src" / "madrac_dubbing" / "src",  # AppImage monorepo
-            base / "opt" / "madrac-hub" / "src" / "madrac_dubbing",         # AppImage standalone
+            base / "opt" / "madrac-hub" / "src",            # AppImage standalone
         ]
 
         src_path = None
-        for sc in src_candidates:
-            if (sc / "madrac_dubbing").is_dir():
-                src_path = sc
+        for pp in pythonpath_candidates:
+            if (pp / "madrac_dubbing").is_dir() or (pp / "madrac_dubbing" / "__init__.py").exists():
+                src_path = pp
                 break
 
         if src_path is None:
             self.health_check_failed.emit(
-                f"madrac_dubbing package not found (tried: {[str(s) for s in src_candidates]})"
+                f"madrac_dubbing package not found (tried: {[str(p) for p in pythonpath_candidates]})"
             )
             return False
         # Build minimal env — full copy of os.environ can cause [Errno 22] on Windows
