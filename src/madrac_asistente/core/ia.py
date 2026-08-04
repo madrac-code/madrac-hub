@@ -248,14 +248,18 @@ def consultar_ia(comando: str, historial: HistorialConversacion) -> Tuple[str, s
     return accion, parametro, es_comando
 
 
-def _consultar_ollama(comando: str, historial: HistorialConversacion) -> Tuple[str, str]:
+def _consultar_ollama(
+    texto: str,
+    historial: HistorialConversacion,
+    usar_tools: bool = True,
+) -> Tuple[str, str]:
     """
-    Consulta a Ollama usando tool calling nativo cuando el modelo lo soporta.
-    Si el modelo no soporta tools o falla, cae al método JSON legacy.
+    Consulta a Ollama con tool calling (PATH A) o modo legacy JSON (PATH B).
 
     Args:
-        comando (str): comando del usuario
+        texto (str): comando del usuario
         historial: Instancia de HistorialConversacion
+        usar_tools (bool): si True, usa tool calling PATH A; si False, usa legacy JSON PATH B
 
     Returns:
         tuple: (accion, parametro)
@@ -265,75 +269,102 @@ def _consultar_ollama(comando: str, historial: HistorialConversacion) -> Tuple[s
     config = cargar_config()
     modelo = config["modelo_ia"]["opciones"]["ollama"]["modelo"]
 
-    system_prompt = _construir_system_prompt()
+    if usar_tools:
+        return _consultar_con_tools(texto, historial, modelo)
+    else:
+        system_prompt = _construir_system_prompt()
+        return _consultar_legacy_json(texto, historial, modelo, system_prompt)
+
+
+def _consultar_con_tools(
+    texto: str,
+    historial: HistorialConversacion,
+    modelo: str,
+) -> Tuple[str, str]:
+    """
+    Consulta a Ollama usando tool calling nativo (PATH A).
+    System prompt enfatiza acceso a herramientas, no JSON.
+
+    Args:
+        texto (str): comando del usuario
+        historial: Instancia de HistorialConversacion
+        modelo (str): modelo de Ollama a usar
+
+    Returns:
+        tuple: (accion, parametro)
+    """
+    import ollama
+
+    system_prompt = (
+        "Sos el asistente JARVIS de MADRAC.\n"
+        "Tenés acceso a herramientas del sistema. Cuando el usuario pida una acción, usá la tool correspondiente. "
+        "Si es conversación, respondé normalmente.\n"
+        "Si no tenés una tool para lo que pide, decilo educadamente."
+    )
 
     try:
-        # Intentar tool calling nativo
-        try:
-            from madrac.mcp.tool_schemas import MADRAC_TOOL_SCHEMAS, _tool_call_to_action
-        except ImportError:
-            logger.warning("madrac.mcp.tool_schemas no disponible, uso JSON legacy")
-            return _consultar_ollama_json(comando, historial, modelo, system_prompt)
+        from madrac.mcp.tool_schemas import MADRAC_TOOL_SCHEMAS, _tool_call_to_action
+    except ImportError:
+        logger.warning("madrac.mcp.tool_schemas no disponible, usando legacy JSON")
+        return _consultar_legacy_json(texto, historial, modelo, _construir_system_prompt())
 
-        logger.info("=== MENSAJES ENVIADOS A OLLAMA ===")
-        for i, msg in enumerate(historial.mensajes):
-            logger.info("[%d] %s: %s", i, msg["role"], msg["content"])
-        logger.info("================================")
+    logger.info("=== MENSAJES ENVIADOS A OLLAMA (tool calling PATH A) ===")
+    for i, msg in enumerate(historial.mensajes):
+        logger.info("[%d] %s: %s", i, msg["role"], msg["content"])
+    logger.info("================================")
 
+    try:
         respuesta = ollama.chat(
             model=modelo,
             messages=[{"role": "system", "content": system_prompt}] + historial.mensajes,
             tools=MADRAC_TOOL_SCHEMAS,
         )
-
-        tool_calls = respuesta["message"].get("tool_calls") or []
-
-        if tool_calls:
-            tool_call = tool_calls[0]
-            tool_name = tool_call["function"]["name"]
-            tool_args = tool_call["function"].get("arguments") or {}
-            if isinstance(tool_args, str):
-                try:
-                    tool_args = json.loads(tool_args)
-                except json.JSONDecodeError:
-                    tool_args = {}
-            logger.info("Ollama tool call: %s(%s)", tool_name, tool_args)
-            accion, parametro = _tool_call_to_action(tool_name, tool_args)
-            return accion, parametro
-
-        # Modelo no hizo tool call → parsear contenido como JSON legacy
-        texto = (respuesta.get("message", {}).get("content") or "").strip()
-        logger.info("=== RESPUESTA RAW OLLAMA (sin tool calls) ===")
-        logger.info(repr(texto))
-        logger.info("============================")
-        try:
-            data = json.loads(texto)
-            accion = data.get("accion", "conversar")
-            parametro = data.get("parametro", "")
-            logger.info(f"Acción: {accion} | Parámetro: {parametro}")
-            return accion, parametro
-        except json.JSONDecodeError:
-            logger.error(f"JSON inválido de Ollama: {texto}")
-            return "conversar", "No entendí bien, podés repetir?"
-
     except Exception as e:
-        logger.warning("Tool calling falló (%s), cayendo a JSON legacy", e)
-        return _consultar_ollama_json(comando, historial, modelo, system_prompt)
+        logger.warning("Tool calling falló (%s), usando legacy JSON", e)
+        return _consultar_legacy_json(texto, historial, modelo, _construir_system_prompt())
+
+    tool_calls = respuesta["message"].get("tool_calls") or []
+
+    if tool_calls:
+        tool_call = tool_calls[0]
+        tool_name = tool_call["function"]["name"]
+        tool_args = tool_call["function"].get("arguments") or {}
+        if isinstance(tool_args, str):
+            try:
+                tool_args = json.loads(tool_args)
+            except json.JSONDecodeError:
+                tool_args = {}
+        logger.info("Ollama tool call (PATH A): %s(%s)", tool_name, tool_args)
+        accion, parametro = _tool_call_to_action(tool_name, tool_args)
+        return accion, parametro
+
+    # Modelo no hizo tool call → fall back a legacy JSON parsing
+    logger.warning("Modelo no hizo tool calls (PATH A), cayendo a legacy JSON")
+    return _consultar_legacy_json(texto, historial, modelo, _construir_system_prompt())
 
 
-def _consultar_ollama_json(
-    comando: str,
+def _consultar_legacy_json(
+    texto: str,
     historial: HistorialConversacion,
     modelo: str,
     system_prompt: str,
 ) -> Tuple[str, str]:
     """
-    Método legacy: consulta a Ollama pidiendo JSON en el prompt.
-    Se usa cuando el modelo no soporta tool calling o falla el intento.
+    Consulta a Ollama en modo legacy JSON (PATH B).
+    System prompt pide una respuesta SIEMPRE en JSON.
+
+    Args:
+        texto (str): comando del usuario
+        historial: Instancia de HistorialConversacion
+        modelo (str): modelo de Ollama a usar
+        system_prompt (str): system prompt con la directiva JSON
+
+    Returns:
+        tuple: (accion, parametro)
     """
     import ollama
 
-    logger.info("=== MENSAJES ENVIADOS A OLLAMA (legacy JSON) ===")
+    logger.info("=== MENSAJES ENVIADOS A OLLAMA (legacy JSON PATH B) ===")
     for i, msg in enumerate(historial.mensajes):
         logger.info("[%d] %s: %s", i, msg["role"], msg["content"])
     logger.info("================================")
@@ -348,13 +379,13 @@ def _consultar_ollama_json(
         data = json.loads(texto)
         accion = data.get("accion", "conversar")
         parametro = data.get("parametro", "")
-        logger.info(f"Acción: {accion} | Parámetro: {parametro}")
+        logger.info(f"Acción (PATH B): {accion} | Parámetro: {parametro}")
         return accion, parametro
     except json.JSONDecodeError:
-        logger.error(f"JSON inválido de Ollama: {texto}")
+        logger.error(f"JSON inválido de Ollama (PATH B): {texto}")
         return "conversar", "No entendí bien, podés repetir?"
     except Exception as e:
-        logger.error(f"Error consultando Ollama: {e}")
+        logger.error(f"Error consultando Ollama (PATH B): {e}")
         return "conversar", "Hubo un error consultando el modelo de IA."
 
 
