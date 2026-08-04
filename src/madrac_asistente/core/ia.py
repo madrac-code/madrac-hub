@@ -5,7 +5,8 @@
 # ────────────────────────────────────────────────────────────────────
 
 import json
-from typing import Tuple, Optional
+import logging
+from typing import Any, Tuple, Optional
 
 from .config import cargar_config, logger
 from .historial import HistorialConversacion
@@ -249,7 +250,8 @@ def consultar_ia(comando: str, historial: HistorialConversacion) -> Tuple[str, s
 
 def _consultar_ollama(comando: str, historial: HistorialConversacion) -> Tuple[str, str]:
     """
-    Consulta a Ollama.
+    Consulta a Ollama usando tool calling nativo cuando el modelo lo soporta.
+    Si el modelo no soporta tools o falla, cae al método JSON legacy.
 
     Args:
         comando (str): comando del usuario
@@ -263,7 +265,154 @@ def _consultar_ollama(comando: str, historial: HistorialConversacion) -> Tuple[s
     config = cargar_config()
     modelo = config["modelo_ia"]["opciones"]["ollama"]["modelo"]
 
-    system_prompt = (
+    system_prompt = _construir_system_prompt()
+
+    try:
+        # Intentar tool calling nativo
+        try:
+            from madrac.mcp.tool_schemas import MADRAC_TOOL_SCHEMAS, _tool_call_to_action
+        except ImportError:
+            logger.warning("madrac.mcp.tool_schemas no disponible, uso JSON legacy")
+            return _consultar_ollama_json(comando, historial, modelo, system_prompt)
+
+        logger.info("=== MENSAJES ENVIADOS A OLLAMA ===")
+        for i, msg in enumerate(historial.mensajes):
+            logger.info("[%d] %s: %s", i, msg["role"], msg["content"])
+        logger.info("================================")
+
+        respuesta = ollama.chat(
+            model=modelo,
+            messages=[{"role": "system", "content": system_prompt}] + historial.mensajes,
+            tools=MADRAC_TOOL_SCHEMAS,
+        )
+
+        tool_calls = respuesta["message"].get("tool_calls") or []
+
+        if tool_calls:
+            tool_call = tool_calls[0]
+            tool_name = tool_call["function"]["name"]
+            tool_args = tool_call["function"].get("arguments") or {}
+            if isinstance(tool_args, str):
+                try:
+                    tool_args = json.loads(tool_args)
+                except json.JSONDecodeError:
+                    tool_args = {}
+            logger.info("Ollama tool call: %s(%s)", tool_name, tool_args)
+            accion, parametro = _tool_call_to_action(tool_name, tool_args)
+            return accion, parametro
+
+        # Modelo no hizo tool call → parsear contenido como JSON legacy
+        texto = (respuesta.get("message", {}).get("content") or "").strip()
+        logger.info("=== RESPUESTA RAW OLLAMA (sin tool calls) ===")
+        logger.info(repr(texto))
+        logger.info("============================")
+        try:
+            data = json.loads(texto)
+            accion = data.get("accion", "conversar")
+            parametro = data.get("parametro", "")
+            logger.info(f"Acción: {accion} | Parámetro: {parametro}")
+            return accion, parametro
+        except json.JSONDecodeError:
+            logger.error(f"JSON inválido de Ollama: {texto}")
+            return "conversar", "No entendí bien, podés repetir?"
+
+    except Exception as e:
+        logger.warning("Tool calling falló (%s), cayendo a JSON legacy", e)
+        return _consultar_ollama_json(comando, historial, modelo, system_prompt)
+
+
+def _consultar_ollama_json(
+    comando: str,
+    historial: HistorialConversacion,
+    modelo: str,
+    system_prompt: str,
+) -> Tuple[str, str]:
+    """
+    Método legacy: consulta a Ollama pidiendo JSON en el prompt.
+    Se usa cuando el modelo no soporta tool calling o falla el intento.
+    """
+    import ollama
+
+    logger.info("=== MENSAJES ENVIADOS A OLLAMA (legacy JSON) ===")
+    for i, msg in enumerate(historial.mensajes):
+        logger.info("[%d] %s: %s", i, msg["role"], msg["content"])
+    logger.info("================================")
+
+    try:
+        respuesta = ollama.chat(
+            model=modelo,
+            messages=[{"role": "system", "content": system_prompt}] + historial.mensajes
+        )
+        texto = respuesta["message"]["content"].strip()
+        texto = texto.replace("```json", "").replace("```", "").strip()
+        data = json.loads(texto)
+        accion = data.get("accion", "conversar")
+        parametro = data.get("parametro", "")
+        logger.info(f"Acción: {accion} | Parámetro: {parametro}")
+        return accion, parametro
+    except json.JSONDecodeError:
+        logger.error(f"JSON inválido de Ollama: {texto}")
+        return "conversar", "No entendí bien, podés repetir?"
+    except Exception as e:
+        logger.error(f"Error consultando Ollama: {e}")
+        return "conversar", "Hubo un error consultando el modelo de IA."
+
+
+def consultar_ia_con_tools(
+    comando: str,
+    historial: HistorialConversacion,
+    usar_tools: bool = True,
+) -> Tuple[str, str, bool]:
+    """
+    Consulta al modelo de IA con soporte de tool calling (Ollama nativo).
+
+    Args:
+        comando (str): comando o pregunta del usuario
+        historial: Instancia de HistorialConversacion
+        usar_tools: si False, fuerza el método JSON legacy
+
+    Returns:
+        tuple: (accion, parametro, es_comando)
+        es_comando = True si la acción no es "conversar"
+    """
+    # Intentar deteccion basica ANTES de llamar a la IA
+    accion_basica, parametro_basico, es_comando_basico = detectar_intencion_basica(comando)
+    if accion_basica is not None:
+        logger.info("Intencion basica detectada: %s con parametro '%s'", accion_basica, parametro_basico)
+        return accion_basica, parametro_basico, es_comando_basico
+
+    config = cargar_config()
+    tipo_ia = config["modelo_ia"]["tipo"]
+
+    historial.agregar_usuario(comando)
+
+    if tipo_ia == "ollama" and usar_tools:
+        accion, parametro = _consultar_ollama(comando, historial)
+    elif tipo_ia == "ollama":
+        modelo = config["modelo_ia"]["opciones"]["ollama"]["modelo"]
+        accion, parametro = _consultar_ollama_json(
+            comando, historial, modelo, _construir_system_prompt()
+        )
+    elif tipo_ia == "claude":
+        accion, parametro = _consultar_claude(comando, historial)
+    elif tipo_ia == "openai":
+        accion, parametro = _consultar_openai(comando, historial)
+    else:
+        logger.error("Tipo de IA desconocido: %s", tipo_ia)
+        return "conversar", "No tengo conexion con el modelo de IA.", False
+
+    es_comando = historial.es_comando(accion)
+
+    # SOLO agregar al historial si es conversacion
+    if not es_comando:
+        historial.agregar_asistente(parametro)
+
+    return accion, parametro, es_comando
+
+
+def _construir_system_prompt() -> str:
+    """Construye el system prompt para el método JSON legacy."""
+    return (
         "Sos un asistente de escritorio en español rioplatense.\n"
         "Respondé SIEMPRE con un JSON válido y nada más, sin explicaciones, sin markdown.\n"
         "Formato exacto: {\"accion\": \"ACCION\", \"parametro\": \"VALOR\"}\n"
@@ -287,43 +436,6 @@ def _consultar_ollama(comando: str, historial: HistorialConversacion) -> Tuple[s
         "Nunca respondas fuera del JSON. Nunca inventes información."
     )
 
-    try:
-        # Usar historial.mensajes (copia) para enviar a Ollama
-        logger.info("=== MENSAJES ENVIADOS A OLLAMA ===")
-
-        for i, msg in enumerate(historial.mensajes):
-            logger.info("[%d] %s: %s",
-                        i,
-                        msg["role"],
-                        msg["content"])
-
-        logger.info("================================")
-        respuesta = ollama.chat(
-            model=modelo,
-            messages=[{"role": "system", "content": system_prompt}] + historial.mensajes
-        )
-
-        texto = respuesta["message"]["content"].strip()
-
-        # Limpiar markdown si existe
-        texto = texto.replace("```json", "").replace("```", "").strip()
-        logger.info("=== RESPUESTA RAW OLLAMA ===")
-        logger.info(repr(texto))
-        logger.info("============================")
-        try:
-            data = json.loads(texto)
-            accion = data.get("accion", "conversar")
-            parametro = data.get("parametro", "")
-            logger.info(f"Acción: {accion} | Parámetro: {parametro}")
-            return accion, parametro
-        except json.JSONDecodeError:
-            logger.error(f"JSON inválido de Ollama: {texto}")
-            return "conversar", "No entendí bien, podés repetir?"
-
-    except Exception as e:
-        logger.error(f"Error consultando Ollama: {e}")
-        return "conversar", "Hubo un error consultando el modelo de IA."
-
 
 def _consultar_claude(comando: str, historial: HistorialConversacion) -> Tuple[str, str]:
     """Consulta a Claude API (por implementar)."""
@@ -341,7 +453,10 @@ __all__ = [
     "_distancia_edicion",
     "detectar_intencion_basica",
     "consultar_ia",
+    "consultar_ia_con_tools",
     "_consultar_ollama",
+    "_consultar_ollama_json",
+    "_construir_system_prompt",
     "_consultar_claude",
     "_consultar_openai"
 ]
