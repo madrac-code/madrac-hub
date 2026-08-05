@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional
 from .base import PipelineStage, StageResult
 from ...core import get_logger
 from ...config import get_config
+from ...workspace import SharedWorkspace
 from ...utils.ffmpeg import (
     resolve_executable,
     get_duration,
@@ -111,6 +112,16 @@ class AudioExtractionStage(PipelineStage):
         context["file_name"] = path.name
         context["file_stem"] = path.stem
         context["file_ext"] = ext
+
+        # Open workspace and save whisper audio (best-effort, never break stage)
+        workspace = None
+        try:
+            workspace = SharedWorkspace.open(path)
+            if workspace and workspace.save_whisper_audio(Path(audio_path), duration_s=duration):
+                context["workspace"] = workspace
+                context["job_id"] = workspace.job_id
+        except Exception:
+            logger.warning("Failed to open workspace for audio extraction", exc_info=True)
 
         return StageResult(True, data={
             "audio_path": audio_path,

@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from .base import PipelineStage, StageResult
 from ...core import get_logger, get_thread_info
 from ...config import get_config
+from ...workspace import SharedWorkspace
 
 logger = get_logger("stage.transcribe")
 
@@ -207,6 +208,15 @@ class TranscribeStage(PipelineStage):
 
             context["segments"] = segment_list
             context["original_lang"] = original_lang
+
+            # Save segments to workspace (best-effort)
+            workspace = context.get("workspace")
+            if workspace:
+                try:
+                    workspace.save_segments(segment_list, original_lang, source="whisper")
+                except Exception:
+                    logger.warning("Failed to save segments to workspace", exc_info=True)
+
             return StageResult(True, data={
                 "segments": segment_list,
                 "original_lang": original_lang,
