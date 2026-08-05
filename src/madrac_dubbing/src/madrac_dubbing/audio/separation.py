@@ -314,6 +314,13 @@ def separate_stems(
 
     if video_hash:
         save_stem_cache(video_hash, stems)
+        # Update StemSet to point to persistent cache (temp dir will be deleted below)
+        cache_dir = _cache_root() / video_hash
+        stems = StemSet(
+            vocals=cache_dir / "vocals.wav",
+            background=cache_dir / "background.wav",
+            metadata=stems.metadata
+        )
 
     if output_dir is None:
         try:
