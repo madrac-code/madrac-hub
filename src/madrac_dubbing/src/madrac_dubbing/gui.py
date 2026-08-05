@@ -11,6 +11,7 @@ from .pipeline.models import DubbingJob, DubbingConfig
 from .tts.edge_tts import EdgeTTSEngine
 from .integration_layer import capabilities, current_mode
 from .shared_workspace import workspace
+from .config import get_config, set_config
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,8 @@ class DubbingGUI:
         
         self.language_var = tk.StringVar(value="es")
         self.voice_var = tk.StringVar()
+        
+        self.high_quality_var = tk.BooleanVar(value=get_config("dubbing.high_quality", True))
         
         self.progress_var = tk.DoubleVar()
         
@@ -91,6 +94,12 @@ class DubbingGUI:
         btn_frame.pack(fill=tk.X, pady=(10, 0))
         ttk.Button(btn_frame, text="Refresh Voices", command=self.refresh_voices_thread).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
         ttk.Button(btn_frame, text="Preview Voice", command=self.preview_voice_thread).pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=2)
+        
+        # Alta Calidad checkbox
+        quality_frame = ttk.Frame(center_frame)
+        quality_frame.pack(fill=tk.X, pady=(5, 0))
+        self.quality_cb = ttk.Checkbutton(quality_frame, text="Alta Calidad (Demucs)", variable=self.high_quality_var, command=self._on_quality_toggled)
+        self.quality_cb.pack(side=tk.LEFT)
         
         # RIGHT: Workspace Status
         right_frame = ttk.LabelFrame(main_frame, text="System Status", padding="10")
@@ -186,6 +195,10 @@ class DubbingGUI:
         if voices:
             self.voice_var.set(voices[0])
 
+    def _on_quality_toggled(self):
+        set_config("dubbing.high_quality", self.high_quality_var.get())
+        self.log(f"Alta Calidad: {'ON' if self.high_quality_var.get() else 'OFF'}")
+
     def preview_voice_thread(self):
         threading.Thread(target=self.preview_voice, daemon=True).start()
 
@@ -237,7 +250,8 @@ class DubbingGUI:
         config = DubbingConfig(
             language=self.language_var.get(),
             voice=self.voice_var.get(),
-            tts_engine="edge"
+            tts_engine="edge",
+            high_quality=self.high_quality_var.get()
         )
         
         job = DubbingJob(

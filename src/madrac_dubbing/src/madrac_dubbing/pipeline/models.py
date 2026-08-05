@@ -139,7 +139,7 @@ class DubbingConfig:
     target_lufs: float = -20.0  # Loudness normalization
     hardcode_subs: bool = False  # Burn subtitles to video
     output_tracks: bool = True  # Export separate tracks in MKV
-    high_quality: bool = False  # Use Demucs AI separation instead of DSP
+    high_quality: bool = True  # Use Demucs AI separation instead of DSP
 
     def to_dict(self):
         return {
