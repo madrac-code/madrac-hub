@@ -11,7 +11,7 @@ DEFAULTS = {
         "modelo": "base",
         "task": "transcribe",
         "detectar_idioma": True,
-        "dispositivo": "cpu",
+        "dispositivo": "auto",
         "compute_type": "int8",
         "beam_size": 5,
         "best_of": 5,
@@ -106,6 +106,9 @@ DEFAULTS = {
         "registered": False,
     },
     "idioma": "es",
+    "dubbing": {
+        "dubs_python_path": "",
+    },
     "plugins": {
         "active": [],
         "search_paths": [],

@@ -47,11 +47,27 @@ class DubbingManager(QObject):
 
     def __init__(self, dubs_python_path: str = "", parent: QObject = None):
         super().__init__(parent)
-        self._dubs_python_path = dubs_python_path or sys.executable
+        self._dubs_python_path = self._resolve_python_path(dubs_python_path)
         self._process: Optional[subprocess.Popen] = None
         self._requests = None
         self._port = _find_free_port()
         self._api_base = f"http://127.0.0.1:{self._port}"
+
+    def _resolve_python_path(self, explicit: str) -> str:
+        """Resolve the python path for launching DUBS with fallback chain."""
+        from pathlib import Path
+        # 1. Explicit arg (e.g., from config) — only if path exists
+        if explicit:
+            p = Path(explicit)
+            if p.exists():
+                return str(p)
+            logger.warning("Configured dubs_python_path does not exist: %s", explicit)
+        # 2. Hub venv
+        hub_venv = Path(r"D:\madrac-hub\venv\Scripts\python.exe")
+        if hub_venv.exists():
+            return str(hub_venv)
+        # 3. Current python (always exists)
+        return sys.executable
 
     def _ensure_requests(self):
         if self._requests is None:

@@ -1,0 +1,14 @@
+{
+  "whisper": {
+    "device": "auto",
+    "modelo": "medium",
+    "compute_type": "int8"
+  },
+  "interfaz": {
+    "tema": "dark",
+    "mostrar_gui": false
+  },
+  "audio": {
+    "idioma": "es"
+  }
+}

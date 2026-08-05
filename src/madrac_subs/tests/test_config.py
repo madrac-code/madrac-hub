@@ -2,6 +2,7 @@
 
 import json
 import tempfile
+from copy import deepcopy
 from pathlib import Path
 import pytest
 
@@ -52,13 +53,13 @@ class TestValidation:
         assert len(warnings) == 0, f"Warnings: {warnings}"
 
     def test_unknown_values_warn(self):
-        bad = dict(DEFAULTS)
+        bad = deepcopy(DEFAULTS)
         bad["whisper"]["dispositivo"] = "quantum"
         warnings = validate_config(bad)
         assert any("dispositivo" in w for w in warnings)
 
     def test_wrong_type_warns(self):
-        bad = dict(DEFAULTS)
+        bad = deepcopy(DEFAULTS)
         bad["whisper"]["beam_size"] = "notanint"
         warnings = validate_config(bad)
         assert any("beam_size" in w for w in warnings)
@@ -102,7 +103,7 @@ class TestConfigManager:
         mgr = ConfigManager()
         mgr.load()
         assert mgr.get("version") == CONFIG_VERSION
-        assert mgr.get("whisper.dispositivo") == "cpu"
+        assert mgr.get("whisper.dispositivo") == "auto"
         assert mgr.get("nonexistent", "fallback") == "fallback"
         modelo = mgr.get("whisper.modelo")
         assert modelo in ("base", "medium", "small", "tiny")
@@ -112,7 +113,7 @@ class TestConfigManager:
         mgr.load()
         mgr.set("whisper.modelo", "tiny")
         assert mgr.get("whisper.modelo") == "tiny"
-        assert mgr.get("whisper.dispositivo") == "cpu"
+        assert mgr.get("whisper.dispositivo") == "auto"
 
     def test_set_nested_creates_path(self, isolated_config):
         mgr = ConfigManager()
