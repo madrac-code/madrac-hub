@@ -20,6 +20,13 @@ from ..utils.audio import parse_srt_file
 
 logger = logging.getLogger(__name__)
 
+# Optional SharedWorkspace import — DUBS can run standalone without madrac_subs
+try:
+    from madrac.workspace.shared import SharedWorkspace, compute_job_id
+    _WORKSPACE_AVAILABLE = True
+except ImportError:
+    _WORKSPACE_AVAILABLE = False
+
 
 class DubbingPipeline:
     """Main dubbing workflow orchestrator"""
@@ -65,11 +72,93 @@ class DubbingPipeline:
 
             job.status = DubbingStatus.EXTRACTING_AUDIO
             self._update(job, 15, "Extracting audio from video...")
-            original_audio_path = self.temp_dir / "original_audio.wav"
-            extract_audio(job.video_path, original_audio_path)
-            self._update(job, 25, "Audio extracted")
             _mark("extract_audio")
 
+            # ─── SharedWorkspace integration (best-effort) ───
+            # Priority: 1) cached stems → skip extraction + Demucs entirely
+            #           2) no stems → always extract fresh full-quality audio for Demucs
+            background_path = None
+            demucs_report = DemucsReport()
+            stems = None
+            video_hash = None
+
+            if _WORKSPACE_AVAILABLE:
+                try:
+                    job_id = compute_job_id(job.video_path)
+                    if job_id:
+                        ws = SharedWorkspace.from_job_id(job_id)
+                        if ws.has_stems():
+                            # Stems cached → skip extraction AND Demucs/DSP
+                            logger.info("[WORKSPACE] Using cached stems: %s", ws.root / "stems")
+                            self._update(job, 55, "Stems loaded from workspace cache")
+                            stems_dir = ws.root / "stems"
+                            # Determine producer from metadata
+                            meta = ws.load_metadata() or {}
+                            producer = meta.get("stems_producer", "demucs")
+                            demucs_report = DemucsReport(
+                                model=meta.get("stems_model", "htdemucs"),
+                                separation_s=0.0,
+                                cache_hit=True,
+                            )
+                            background_path = stems_dir / ("background.wav" if producer == "demucs" else "no_vocals.wav")
+                            _mark("separate_stems")
+                except Exception as e:
+                    logger.debug("[WORKSPACE] Not available or error: %s", e)
+
+            if background_path is None:
+                # No cached stems → extract fresh full-quality audio
+                original_audio_path = self.temp_dir / "original_audio.wav"
+                extract_audio(job.video_path, original_audio_path)
+                self._update(job, 25, "Audio extracted")
+                logger.info("[WORKSPACE] Fresh audio extracted: %s", original_audio_path)
+
+                # Run stem separation (Demucs or DSP)
+                job.status = DubbingStatus.REDUCING_VOCALS
+                self._update(job, 55, "Separating audio stems...")
+
+                if job.config.high_quality and has_demucs():
+                    self._update(job, 56, "Alta calidad activada — separando con Demucs...")
+                    t0 = time.perf_counter()
+                    video_hash = hash_video(job.video_path)
+                    stems = separate_stems(original_audio_path, video_hash=video_hash)
+                    t_sep = time.perf_counter() - t0
+                    background_path = stems.background
+                    cache_hit = stems.metadata.get("cache_hit", False)
+                    demucs_report = DemucsReport(
+                        model=stems.metadata.get("model", "htdemucs"),
+                        separation_s=round(t_sep, 3),
+                        cache_hit=cache_hit,
+                    )
+                    logger.info("[DEMUCS] pipeline: separation=%dm%02ds  cache_hit=%s  model=%s",
+                                int(t_sep // 60), int(t_sep % 60), cache_hit,
+                                stems.metadata.get("model", "?"))
+                    logger.info("[DEMUCS] pipeline: background=%s  vocals=%s",
+                                stems.background, stems.vocals)
+                    self._update(job, 60, "AI separation complete, background preserved")
+                    # Save stems to workspace for next run
+                    if _WORKSPACE_AVAILABLE:
+                        try:
+                            ws = SharedWorkspace.from_job_id(compute_job_id(job.video_path))
+                            if ws.save_stems(stems.vocals, stems.background, producer="demucs"):
+                                logger.info("[WORKSPACE] Stems saved for future runs")
+                        except Exception as e:
+                            logger.debug("[WORKSPACE] Failed to save stems: %s", e)
+                else:
+                    # DSP fallback
+                    if job.config.high_quality:
+                        logger.warning("Alta calidad solicitada pero Demucs no está disponible — usando reducción vocal DSP")
+                        self._update(job, 56, "Demucs no disponible, usando DSP como fallback...")
+                    else:
+                        self._update(job, 56, "Modo rápido — usando reducción vocal DSP...")
+                    from ..audio.mixer import reduce_vocals
+                    bg_path = self.temp_dir / "legacy_background.wav"
+                    reduced, sr = reduce_vocals(original_audio_path, job.config.reduce_vocals)
+                    sf.write(str(bg_path), reduced, sr)
+                    background_path = bg_path
+                    self._update(job, 60, "Reducción vocal DSP completada")
+                _mark("separate_stems")
+
+            # ─── TTS Generation (independent of stem source) ───
             job.status = DubbingStatus.GENERATING_TTS
             self._update(job, 30, "Reading subtitles...")
             subtitles = parse_srt_file(job.srt_path)
@@ -94,49 +183,6 @@ class DubbingPipeline:
 
             self._update(job, 50, f"Generated TTS for {len(tts_segments)} segments")
             _mark("tts_synthesis")
-
-            job.status = DubbingStatus.REDUCING_VOCALS
-            self._update(job, 55, "Separating audio stems...")
-
-            demucs_report = DemucsReport()
-            if job.config.high_quality:
-                if has_demucs():
-                    self._update(job, 56, "Alta calidad activada — separando con Demucs...")
-                    t0 = time.perf_counter()
-                    video_hash = hash_video(job.video_path)
-                    stems = separate_stems(original_audio_path, video_hash=video_hash)
-                    t_sep = time.perf_counter() - t0
-                    background_path = stems.background
-                    cache_hit = stems.metadata.get("cache_hit", False)
-                    demucs_report = DemucsReport(
-                        model=stems.metadata.get("model", "htdemucs"),
-                        separation_s=round(t_sep, 3),
-                        cache_hit=cache_hit,
-                    )
-                    logger.info("[DEMUCS] pipeline: separation=%dm%02ds  cache_hit=%s  model=%s",
-                                int(t_sep // 60), int(t_sep % 60), cache_hit,
-                                stems.metadata.get("model", "?"))
-                    logger.info("[DEMUCS] pipeline: background=%s  vocals=%s",
-                                stems.background, stems.vocals)
-                    self._update(job, 60, "AI separation complete, background preserved")
-                else:
-                    logger.warning("Alta calidad solicitada pero Demucs no está disponible — usando reducción vocal DSP")
-                    self._update(job, 56, "Demucs no disponible, usando DSP como fallback...")
-                    from ..audio.mixer import reduce_vocals
-                    bg_path = self.temp_dir / "legacy_background.wav"
-                    reduced, sr = reduce_vocals(original_audio_path, job.config.reduce_vocals)
-                    sf.write(str(bg_path), reduced, sr)
-                    background_path = bg_path
-                    self._update(job, 60, "Reducción vocal DSP completada (fallback)")
-            else:
-                self._update(job, 56, "Modo rápido — usando reducción vocal DSP...")
-                from ..audio.mixer import reduce_vocals
-                bg_path = self.temp_dir / "legacy_background.wav"
-                reduced, sr = reduce_vocals(original_audio_path, job.config.reduce_vocals)
-                sf.write(str(bg_path), reduced, sr)
-                background_path = bg_path
-                self._update(job, 60, "Reducción vocal DSP completada")
-            _mark("separate_stems")
 
             job.status = DubbingStatus.MIXING_AUDIO
             self._update(job, 65, "Synchronizing TTS to subtitles...")
