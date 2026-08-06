@@ -1,6 +1,7 @@
 # ADR-009 — Assistant Integrated In-Process into MADRAC-SUBS
 
 **Date**: 2026-07-23
+**Updated**: 2026-08-06 (assistant renamed MADRAC, wakeword changed to "madrac")
 **Status**: Accepted — implemented in Phase 2B/2C
 **Deciders**: Human
 **Components affected**: SUBS, ASISTENTE
@@ -41,6 +42,15 @@ Integration points:
 ## Relation to Future Architecture
 
 This is a Phase 2 integration decision. In Phase 3+ (MADRAC-CORE), the assistant may be extracted back to a separate process communicating via Event Bus, once the Event Bus exists. This ADR does not prevent that future extraction.
+
+## Amendment 2026-08-06 — MADRAC Identity and Wakeword
+
+The personal assistant is now branded **MADRAC**. The wakeword changed from `hey_jarvis` to `madrac`:
+
+- `asistente.py` startup phrase: `"Hola, soy MADRAC, tu asistente. Decí MADRAC para activarme."`
+- `config.json`: `"wakeword": { "habilitada": true, "palabra": "madrac" }` (default when absent: `madrac`)
+- Wakeword model: `hey_jarvis_v0.1.onnx` is auto-downloaded via `openwakeword.utils.download_models(["hey_jarvis"])` as a stand-in; a custom "madrac" model is planned as a later step. The word the assistant listens for is `madrac` regardless of the model file name.
+- TTS motor default is `edge` (`edge_tts`, voice `es-MX-DaliaNeural`), matching DUBS; `powershell`/`pyttsx3` remain as fallbacks.
 
 ## Files Changed
 
