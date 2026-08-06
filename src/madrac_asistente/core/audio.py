@@ -97,6 +97,70 @@ def _asegurar_modelo_wakeword() -> str:
     return str(modelo_path)
 
 
+def _elegir_dispositivo_mic(config_device=None) -> int:
+    """Elige el mejor micrófono disponible.
+
+    La prioridad es:
+      1. El ``dispositivo_mic`` de la config, si apunta a un dispositivo
+         de entrada válido.
+      2. El primer dispositivo cuyo nombre contenga "micrófono" (o "mic"),
+         prefiriendo el host API WASAPI.
+      3. El dispositivo de entrada por defecto de PortAudio.
+
+    Devuelve el índice del dispositivo elegido.
+    """
+    import sounddevice as sd
+
+    def _es_entrada(d):
+        return d["max_input_channels"] > 0
+
+    def _es_mic(d):
+        nombre = d["name"].lower()
+        return _es_entrada(d) and (
+            "micrófono" in nombre or "mic" in nombre
+        )
+
+    if config_device is not None:
+        try:
+            d = sd.query_devices(config_device)
+            if _es_entrada(d):
+                api = sd.query_hostapis(d["hostapi"])["name"]
+                logger.info(
+                    f"Usando dispositivo mic configurado: "
+                    f"{config_device} ({d['name']}, {api})"
+                )
+                return config_device
+        except Exception:
+            pass
+
+    wasapi = None
+    mics = []
+    for i, d in enumerate(sd.query_devices()):
+        if not _es_mic(d):
+            continue
+        mics.append(i)
+        api = sd.query_hostapis(d["hostapi"])["name"]
+        if "WASAPI" in api and wasapi is None:
+            wasapi = i
+
+    if wasapi is not None:
+        dev = sd.query_devices(wasapi)
+        logger.info(f"Mic auto-seleccionado (WASAPI): {wasapi} ({dev['name']})")
+        return wasapi
+    if mics:
+        dev = sd.query_devices(mics[0])
+        logger.info(f"Mic auto-seleccionado: {mics[0]} ({dev['name']})")
+        return mics[0]
+
+    default_in = sd.default.device[0]
+    if default_in is not None:
+        dev = sd.query_devices(default_in)
+        logger.info(f"Usando mic por defecto: {default_in} ({dev['name']})")
+        return default_in
+
+    return None
+
+
 def esperar_wakeword(stop_event=None) -> bool:
     """
     Espera a que el usuario diga la palabra clave.
@@ -114,7 +178,10 @@ def esperar_wakeword(stop_event=None) -> bool:
     config = cargar_config()
     sample_rate = config.get("audio", {}).get("sample_rate", 16000)
     chunk_size = config.get("audio", {}).get("chunk_size", 1280)
-    device = config.get("audio", {}).get("dispositivo_mic")
+    device = _elegir_dispositivo_mic(
+        config.get("audio", {}).get("dispositivo_mic")
+    )
+    channels = config.get("audio", {}).get("canales_mic", 2)
     palabra = config.get("wakeword", {}).get("palabra", "madrac")
     umbral = config.get("wakeword", {}).get("umbral", 0.5)
     framework = config.get("wakeword", {}).get("framework", "onnx")
@@ -128,17 +195,31 @@ def esperar_wakeword(stop_event=None) -> bool:
     )
     wake_model.reset()
 
+    # Try WASAPI if device is WASAPI-based
+    extra = {}
+    if device is not None:
+        try:
+            device_info = sd.query_devices(device)
+            api_name = sd.query_hostapis(device_info['hostapi'])['name']
+            if 'WASAPI' in api_name:
+                extra = {'extra_settings': sd.WasapiSettings(exclusive=False)}
+        except Exception:
+            pass
+
     with sd.InputStream(
         samplerate=sample_rate,
-        channels=1,
+        channels=channels,
         dtype="int16",
         device=device,
-        blocksize=chunk_size
+        blocksize=chunk_size,
+        **extra
     ) as stream:
         while True:
             if stop_event and stop_event.is_set():
                 return False
             chunk, _ = stream.read(chunk_size)
+            if channels > 1:
+                chunk = chunk.mean(axis=1, keepdims=True).astype("int16")
             chunk_np = np.squeeze(chunk)
             prediccion = wake_model.predict(chunk_np)
             score = list(prediccion.values())[0]
