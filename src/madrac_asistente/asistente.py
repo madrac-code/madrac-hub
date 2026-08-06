@@ -52,7 +52,8 @@ def _iniciar_ollama():
         _proceso_ollama = subprocess.Popen(
             ["ollama", "serve"],
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW
         )
         for _ in range(30):
             if _ollama_responde():

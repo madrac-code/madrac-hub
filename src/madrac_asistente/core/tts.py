@@ -91,13 +91,23 @@ def _hablar_powershell(texto: str) -> bool:
     texto_safe = texto.replace("'", "").replace('"', "")
 
     try:
-        subprocess.run([
-            "powershell", "-Command",
-            f"Add-Type -AssemblyName System.Speech; "
-            f"$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
-            f"$s.SelectVoice('{voz}'); "
+        cmd = (
+            "Add-Type -AssemblyName System.Speech; "
+            "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+            f"if ('{voz}' -in $s.GetInstalledVoices().VoiceInfo.Name) {{ "
+            f"$s.SelectVoice('{voz}') }}; "
             f"$s.Speak('{texto_safe}')"
-        ], capture_output=True, timeout=30)
+        )
+        r = subprocess.run(
+            ["powershell", "-Command", cmd],
+            capture_output=True, timeout=30,
+            creationflags=subprocess.CREATE_NO_WINDOW
+        )
+        if r.returncode != 0:
+            logger.error(
+                f"Error en TTS PowerShell: {r.stderr.decode('utf-8', errors='replace')}"
+            )
+            return False
         return True
     except Exception as e:
         logger.error(f"Error en TTS PowerShell: {e}")
