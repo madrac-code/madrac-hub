@@ -3,13 +3,9 @@ import sys
 
 
 def _raiz_proyecto() -> str:
-    try:
-        from madrac.core.paths import get_base_path
-        return str(get_base_path())
-    except ImportError:
-        if getattr(sys, 'frozen', False):
-            return sys._MEIPASS
-        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if getattr(sys, 'frozen', False):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def _raiz_ejecutable() -> str:

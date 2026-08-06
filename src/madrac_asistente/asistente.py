@@ -93,7 +93,7 @@ def loop_principal(gui=None, stop_event=None):
     """Loop principal del asistente."""
     global historial
 
-    hablar("Asistente iniciado. Decí hey Jarvis para activarme.")
+    hablar("Hola, soy MADRAC, tu asistente. Decí MADRAC para activarme.")
     if gui:
         gui.actualizar_estado("Escuchando...")
         gui.agregar_log("Sistema listo. Esperando palabra clave...")

@@ -150,6 +150,7 @@ class MainWindow(QMainWindow):
         self._asistente_mgr = AssistantManager(self)
         self._asistente_mgr.state_changed.connect(self._on_asistente_state)
         self._asistente_mgr.error_occurred.connect(self._on_asistente_error)
+        self._asistente_mgr.log_message.connect(self._append_log)
         if CLIENTE.is_logged_in():
             QTimer.singleShot(0, self._check_community_batch)
 

@@ -108,9 +108,9 @@ class SetupWizard:
 
         tk.Label(self.frame_contenido, text="Motor de voz (TTS):",
                  font=("Segoe UI", 10, "bold"), bg=self.BG, fg=self.FG).pack(anchor=tk.W)
-        self.var_tts = tk.StringVar(value=self.config.get("tts", {}).get("motor", "powershell"))
+        self.var_tts = tk.StringVar(value=self.config.get("tts", {}).get("motor", "edge"))
         combo_tts = ttk.Combobox(self.frame_contenido, textvariable=self.var_tts,
-                                   values=["powershell", "pyttsx3"], state="readonly", font=("Segoe UI", 10))
+                                   values=["edge", "powershell", "pyttsx3"], state="readonly", font=("Segoe UI", 10))
         combo_tts.pack(fill=tk.X, pady=(5, 20))
 
         self._botones_navegacion(es_primero=True)
@@ -203,7 +203,7 @@ class SetupWizard:
 
         tk.Label(self.frame_contenido, text="Sensibilidad de activación (0-1):",
                  font=("Segoe UI", 10, "bold"), bg=self.BG, fg=self.FG).pack(anchor=tk.W)
-        self.var_umbral = tk.DoubleVar(value=self.config["wakeword"]["umbral"])
+        self.var_umbral = tk.DoubleVar(value=self.config.get("wakeword", {}).get("umbral", 0.5))
         scale = tk.Scale(self.frame_contenido, from_=0.1, to=0.8, resolution=0.05,
                           orient=tk.HORIZONTAL, variable=self.var_umbral,
                           bg=self.BG, fg=self.FG, highlightbackground=self.BG,
@@ -328,8 +328,8 @@ class SetupWizard:
             else:
                 self.config["audio"]["dispositivo_mic"] = None
 
-            self.config["wakeword"]["umbral"] = round(self.var_umbral.get(), 2)
-            self.config["tts"]["voz"] = self.var_voz.get()
+            self.config.setdefault("wakeword", {})["umbral"] = round(self.var_umbral.get(), 2)
+            self.config.setdefault("tts", {})["voz"] = self.var_voz.get()
 
             self.config["setup_completado"] = True
 
@@ -338,8 +338,8 @@ class SetupWizard:
 
             messagebox.showinfo("¡Listo!",
                                 "Configuración guardada correctamente.\n\n"
-                                "Ya podés empezar a usar Jarvis.\n"
-                                "Decí: ¡Hey Jarvis!")
+                                "Ya podés empezar a usar MADRAC.\n"
+                                "Decí: ¡MADRAC!")
             self.root.destroy()
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo guardar la configuración:\n{e}")
