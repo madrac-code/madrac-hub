@@ -154,6 +154,8 @@ class MainWindow(QMainWindow):
         if CLIENTE.is_logged_in():
             QTimer.singleShot(0, self._check_community_batch)
 
+        self._start_mcp_server()
+
         logger.info("MainWindow ready")
 
     # Status bar animation (V2 style)
@@ -622,6 +624,91 @@ class MainWindow(QMainWindow):
         self._log_timer = QTimer(self)
         self._log_timer.timeout.connect(self._flush_log_queue)
         self._log_timer.start(150)
+
+    # ------------------------------------------------------------------ MCP
+
+    def _start_mcp_server(self):
+        """Start the MCP HTTP server with live app state in a background thread.
+
+        Exposes the 15 MCP tools over http://127.0.0.1:7654 using the real
+        queue manager, worker, config manager and assistant manager so agents
+        see the live state of the running app.
+        """
+        if getattr(self, "_mcp_thread", None) and self._mcp_thread.is_alive():
+            logger.warning("MCP server already running")
+            return
+
+        from collections import deque
+        import logging as _logging
+        from ..mcp.http_server import MCPHttpServer
+
+        log_buffer: deque = deque(maxlen=1000)
+        _buf_handler = _logging.Handler()
+        _buf_handler.emit = lambda r: log_buffer.append({
+            "time": _logging.Formatter().formatTime(r),
+            "level": r.levelname,
+            "name": r.name,
+            "message": r.getMessage(),
+        })
+        _buf_handler.setLevel(_logging.DEBUG)
+        _logging.getLogger("madrac").addHandler(_buf_handler)
+
+        state: dict[str, Any] = {
+            "queue_manager": self._queue_mgr,
+            "worker": self._worker,
+            "config_manager": self._config_mgr,
+            "dubbing_manager": None,
+            "assistant_manager": self._asistente_mgr,
+            "log_buffer": log_buffer,
+        }
+
+        import asyncio as _asyncio
+
+        server = MCPHttpServer(state)
+
+        def _run():
+            loop = _asyncio.new_event_loop()
+            _asyncio.set_event_loop(loop)
+            self._mcp_loop = loop
+            try:
+                loop.run_until_complete(server.start())
+                loop.run_forever()
+            except OSError as e:
+                logger.error(
+                    "MCP HTTP server failed to bind 127.0.0.1:7654 — "
+                    "is another instance already running? (%s)", e,
+                )
+            except Exception as e:
+                logger.error("MCP HTTP server crashed: %s", e, exc_info=True)
+            finally:
+                loop.close()
+
+        self._mcp_server = server
+        self._mcp_thread = threading.Thread(
+            target=_run,
+            daemon=True,
+            name="mcp-http",
+        )
+        self._mcp_thread.start()
+        logger.info("MCP HTTP server thread started (http://127.0.0.1:7654)")
+
+    def _stop_mcp_server(self):
+        thread = getattr(self, "_mcp_thread", None)
+        server = getattr(self, "_mcp_server", None)
+        loop = getattr(self, "_mcp_loop", None)
+        self._mcp_thread = None
+        self._mcp_server = None
+        self._mcp_loop = None
+        if server is not None and loop is not None:
+            try:
+                import asyncio as _asyncio
+                future = _asyncio.run_coroutine_threadsafe(server.stop(), loop)
+                future.result(timeout=3)
+                loop.call_soon_threadsafe(loop.stop)
+            except Exception as e:
+                logger.warning("MCP HTTP server stop: %s", e)
+        if thread and thread.is_alive():
+            logger.info("MCP HTTP server thread will exit on daemon shutdown")
 
     # ------------------------------------------------------------------ slots
 
@@ -1364,6 +1451,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         self._save_state()
+        self._stop_mcp_server()
         if self._worker and self._worker.isRunning():
             self._worker.cancel()
             self._worker.wait(2000)
