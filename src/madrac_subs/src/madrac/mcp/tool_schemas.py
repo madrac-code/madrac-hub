@@ -176,6 +176,115 @@ MADRAC_TOOL_SCHEMAS = [
     }
 ]
 
+# Workspace tools (6 tools)
+MADRAC_TOOL_SCHEMAS.extend([
+    {
+        "type": "function",
+        "function": {
+            "name": "get_workspace_info",
+            "description": "Get metadata and artifact status for a job workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "description": "Job ID (sha256-<hash>)"
+                    }
+                },
+                "required": ["job_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_workspaces",
+            "description": "List all available job workspaces with artifact status.",
+            "parameters": {"type": "object", "properties": {}, "required": []}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_segments",
+            "description": "Get all transcription segments for a job. Returns list of {id, start, end, text}.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "description": "Job ID (sha256-<hash>)"
+                    }
+                },
+                "required": ["job_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rename_speaker",
+            "description": "Rename a speaker track in a workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_id": {"type": "string"},
+                    "speaker_id": {"type": "integer"},
+                    "name": {"type": "string"}
+                },
+                "required": ["job_id", "speaker_id", "name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_subtitle_segment",
+            "description": "Edit the text of a specific subtitle segment. Use get_segments first to find the segment_id. Changes are saved immediately to the workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "description": "Job ID (sha256-<hash>)"
+                    },
+                    "segment_id": {
+                        "type": "integer",
+                        "description": "Segment index (0-based)"
+                    },
+                    "new_text": {
+                        "type": "string",
+                        "description": "New text for this segment"
+                    }
+                },
+                "required": ["job_id", "segment_id", "new_text"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "export_srt",
+            "description": "Export edited segments from workspace as a .srt file. Use after editing segments with edit_subtitle_segment.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "description": "Job ID (sha256-<hash>)"
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "Optional output path. If empty, saves next to source video.",
+                        "default": ""
+                    }
+                },
+                "required": ["job_id"]
+            }
+        }
+    }
+])
+
 
 def _tool_call_to_action(
     tool_name: str, args: dict[str, Any]

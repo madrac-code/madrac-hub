@@ -20,6 +20,14 @@ from .tools.translation import translate_subtitles
 from .tools.assistant import execute_assistant_action
 from .tools.config import read_config
 from .tools.dubbing import get_dubbing_status, start_dubbing
+from .tools.workspace import (
+    get_workspace_info,
+    list_workspaces,
+    get_segments,
+    rename_speaker,
+    edit_subtitle_segment,
+    export_srt,
+)
 from .resources.queue import get_queue_estado_resource, get_queue_progreso_resource
 from .resources.config import get_config_actual_resource
 from .resources.logs import get_ultimos_logs_resource
@@ -58,6 +66,13 @@ def create_server(app_state: dict[str, Any]) -> FastMCP:
     mcp.tool(name="read_config")(read_config(_app_state))
     mcp.tool(name="get_dubbing_status")(get_dubbing_status(_app_state))
     mcp.tool(name="start_dubbing")(start_dubbing(_app_state))
+    # Workspace tools
+    mcp.tool(name="get_workspace_info")(get_workspace_info(_app_state))
+    mcp.tool(name="list_workspaces")(list_workspaces(_app_state))
+    mcp.tool(name="get_segments")(get_segments(_app_state))
+    mcp.tool(name="rename_speaker")(rename_speaker(_app_state))
+    mcp.tool(name="edit_subtitle_segment")(edit_subtitle_segment(_app_state))
+    mcp.tool(name="export_srt")(export_srt(_app_state))
 
     # ── Resources ─────────────────────────────────────────────────
     mcp.resource(
@@ -84,7 +99,7 @@ def create_server(app_state: dict[str, Any]) -> FastMCP:
         description="Last N log entries from ring buffer",
     )(get_ultimos_logs_resource(_app_state))
 
-    logger.info("MADRAC MCP server created (9 tools, 4 resources)")
+    logger.info("MADRAC MCP server created (15 tools, 4 resources)")
     return mcp
 
 

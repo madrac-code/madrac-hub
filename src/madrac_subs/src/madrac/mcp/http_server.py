@@ -97,11 +97,12 @@ class MCPHttpServer:
 
     async def _handle_health(self, request: web.Request) -> web.Response:
         """Health check — no auth required."""
+        from .tool_schemas import MADRAC_TOOL_SCHEMAS
         return web.Response(
             text=json.dumps({
                 "status": "ok",
                 "server": "madrac-subs",
-                "tools": 9,
+                "tools": len(MADRAC_TOOL_SCHEMAS),
                 "resources": 4,
             }),
             content_type="application/json",

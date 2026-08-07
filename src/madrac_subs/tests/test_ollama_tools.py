@@ -28,7 +28,7 @@ class TestToolSchemas:
             assert "parameters" in schema["function"]
 
     def test_schema_count_matches_server(self):
-        assert len(MADRAC_TOOL_SCHEMAS) == 9
+        assert len(MADRAC_TOOL_SCHEMAS) == 15
 
     def test_schema_names_match_server_tools(self):
         from madrac.mcp.server import create_server
