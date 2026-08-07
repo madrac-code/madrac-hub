@@ -641,6 +641,7 @@ class MainWindow(QMainWindow):
         from collections import deque
         import logging as _logging
         from ..mcp.http_server import MCPHttpServer
+        from ..dubbing.manager import DubbingManager
 
         log_buffer: deque = deque(maxlen=1000)
         _buf_handler = _logging.Handler()
@@ -653,11 +654,12 @@ class MainWindow(QMainWindow):
         _buf_handler.setLevel(_logging.DEBUG)
         _logging.getLogger("madrac").addHandler(_buf_handler)
 
+        dubs_python = get_config("dubbing.dubs_python_path", "")
         state: dict[str, Any] = {
             "queue_manager": self._queue_mgr,
             "worker": self._worker,
             "config_manager": self._config_mgr,
-            "dubbing_manager": None,
+            "dubbing_manager": DubbingManager(dubs_python),
             "assistant_manager": self._asistente_mgr,
             "log_buffer": log_buffer,
         }

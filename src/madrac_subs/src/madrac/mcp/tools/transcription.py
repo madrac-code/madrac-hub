@@ -24,6 +24,14 @@ def transcribe_file(app_state: dict[str, Any]):
             if not path.exists():
                 return f"Error: file not found: {ruta}"
             entry = qm.add(ruta)
+            worker = app_state.get("worker")
+            if worker is not None and hasattr(worker, "isRunning"):
+                if not worker.isRunning():
+                    worker.start()
+                    return (
+                        f"Transcription queued. Job ID: {entry.id} "
+                        f"(worker auto-started)"
+                    )
             return f"Transcription queued. Job ID: {entry.id}"
         except Exception as e:
             return f"Error queuing transcription: {e}"

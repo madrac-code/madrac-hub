@@ -18,10 +18,11 @@ ffmpeg-python==0.2.0
 edge-tts>=6.1.12
 
 # TRANSLATION
-transformers>=4.35.2,<4.40.0
+# tokenizers>=0.20 required: 0.15.x crashea (0xc0000005) con Python 3.14
+transformers>=4.40.0,<6.0.0
 torch>=2.5.0,<3.0.0
 sentencepiece>=0.2.0
-tokenizers>=0.14.1
+tokenizers>=0.20.0
 sacremoses>=0.1.0
 torchaudio>=0.8
 

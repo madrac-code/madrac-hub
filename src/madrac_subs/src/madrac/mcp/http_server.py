@@ -170,22 +170,37 @@ class MCPHttpServer:
         self, name: str, arguments: dict
     ) -> Any:
         """Call a registered MCP tool by name."""
-        from .tools.queue import get_queue_status, pause_processing
+        from .tools.queue import get_queue_status, pause_processing, resume_processing
         from .tools.transcription import transcribe_file
         from .tools.translation import translate_subtitles
         from .tools.assistant import execute_assistant_action
         from .tools.config import read_config
         from .tools.dubbing import get_dubbing_status, start_dubbing
+        from .tools.workspace import (
+            get_workspace_info,
+            list_workspaces,
+            get_segments,
+            rename_speaker,
+            edit_subtitle_segment,
+            export_srt,
+        )
 
         tool_map = {
             "get_queue_status": get_queue_status(self.app_state),
             "pause_processing": pause_processing(self.app_state),
+            "resume_processing": resume_processing(self.app_state),
             "transcribe_file": transcribe_file(self.app_state),
             "translate_subtitles": translate_subtitles(self.app_state),
             "execute_assistant_action": execute_assistant_action(self.app_state),
             "read_config": read_config(self.app_state),
             "get_dubbing_status": get_dubbing_status(self.app_state),
             "start_dubbing": start_dubbing(self.app_state),
+            "get_workspace_info": get_workspace_info(self.app_state),
+            "list_workspaces": list_workspaces(self.app_state),
+            "get_segments": get_segments(self.app_state),
+            "rename_speaker": rename_speaker(self.app_state),
+            "edit_subtitle_segment": edit_subtitle_segment(self.app_state),
+            "export_srt": export_srt(self.app_state),
         }
 
         if name not in tool_map:
