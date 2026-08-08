@@ -61,7 +61,7 @@ def start_dubbing(app_state: dict[str, Any]):
             if not output_path:
                 video = Path(video_path)
                 output_path = str(video.with_name(f"{video.stem}_dubbed_{idioma}{video.suffix}"))
-            config = {"idioma": idioma}
+            config = {"language": idioma}
             # Ensure DUBS subprocess is running
             if dm._process is None or dm._process.poll() is not None:
                 ok = dm.launch_dubs()
