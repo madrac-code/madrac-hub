@@ -3,7 +3,7 @@
 **Version**: 1.0  
 **Date**: 2026-07-24  
 **Current Phase**: Phase 3 — MCP Integration (Phase 3A Complete, Phase 3B/3C Planned)  
-**Last Commit**: `1227b48` (fix: start_dubbing API field mapping)
+**Last Commit**: `25ecc71` (feat(mui): MUI Phase 1 + 6 bug fixes)
 **Target Audience**: New developers, AI agents, project maintainers  
 
 ---
@@ -449,6 +449,7 @@ VIDEO INPUT
 | **Fingerprints** | ✅ | SHA256 video + ffprobe metadata + parser metadata |
 | **Dubbing Integration** | ✅ | "Dub Now" button → DubDialog → DUBS API → Progress polling |
 | **MCP Server** | ✅ Phase 3C | 15 tools | stdio + HTTP 127.0.0.1:7654 | edit_subtitle_segment + export_srt + workspace tools |
+| **MUI Protocol** | ✅ Phase 1 | 20 tools — create/update/close/list/events, UIManager always active |
 | **Assistant Integration** | ✅ Phase 2C | AssistantManager (in-process QThread) + ConfigDialog |
 | **Build System** | ✅ | PyInstaller onefile ~601 MB, CI/CD GitHub Actions |
 
@@ -498,6 +499,7 @@ VIDEO INPUT
 | MCP Phase 3B — Ollama Tool Calling | Phase 3B | cc4ac21 / 2026-07-24 |
 | MCP Phase 3C — HTTP Transport | Phase 3C | 2325dec / 2026-07-24 |
 | MCP 15 tools + workspace editing | Phase 3C | 1227b48 / 2026-08-06 |
+| MUI Phase 1 — procedural windows + 6 bug fixes | Phase MUI | 25ecc71 |
 | Security: Gemini API Key → Env Var | — | 2026-07-24 |
 | Model Name Fix (gemini-2.5-flash) | — | 2026-07-24 |
 
@@ -541,6 +543,7 @@ VIDEO INPUT
 | **Model Name Incorrecto (gemini-3.5-flash)** | ✅ RESUELTO | — | Corregido a `gemini-2.5-flash` / `gemini-1.5-flash` |
 | **Claude Desktop ignora `cwd` en Windows** | 🟡 BAJO | Documentado (ADR-008) | Usar paths absolutos en `args` |
 | **Audio device blocker (Windows PortAudio MME/WDM-KS)** | 🟡 BAJO | Documentado LLAVE-005 | Workaround: resample en callback mode |
+| **MUI button JSON format** | 🟡 BAJO | Widget array with button type has JSON serialization issue via PowerShell; works in Python client. Documented in AI_READY_CODEBASE.md |
 
 ---
 
