@@ -285,6 +285,115 @@ MADRAC_TOOL_SCHEMAS.extend([
     }
 ])
 
+# MUI window tools (5 tools)
+MADRAC_TOOL_SCHEMAS.extend([
+    {
+        "type": "function",
+        "function": {
+            "name": "create_window",
+            "description": "Create a new MUI window with procedural widgets. "
+                           "Widget types: label, button, table, "
+                           "segment_selector, audio_player, waveform. "
+                           "Button actions: {\"tool\": name, \"params\": {...}} "
+                           "or {\"internal\": play_segment|record_segment|close_window}.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Window title"
+                    },
+                    "widgets": {
+                        "type": "array",
+                        "description": "List of widget descriptors",
+                        "items": {"type": "object"}
+                    },
+                    "job_id": {
+                        "type": "string",
+                        "description": "Optional workspace job ID for persistence",
+                        "default": ""
+                    },
+                    "keybindings": {
+                        "type": "object",
+                        "description": "Optional dict of key -> action (reserved)",
+                        "default": {}
+                    }
+                },
+                "required": ["title", "widgets"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "update_widget",
+            "description": "Update widget properties in a live MUI window. "
+                           "Supported props: text, enabled.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "window_id": {
+                        "type": "string",
+                        "description": "Window ID from create_window"
+                    },
+                    "widget_id": {
+                        "type": "string",
+                        "description": "Widget ID from the window's descriptors"
+                    },
+                    "props": {
+                        "type": "object",
+                        "description": "Props to update, e.g. {\"text\": \"...\"}"
+                    }
+                },
+                "required": ["window_id", "widget_id", "props"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "close_window",
+            "description": "Close an MUI window by ID.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "window_id": {
+                        "type": "string",
+                        "description": "Window ID from create_window"
+                    }
+                },
+                "required": ["window_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_windows",
+            "description": "List open MUI windows with their status.",
+            "parameters": {"type": "object", "properties": {}, "required": []}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_window_events",
+            "description": "Get pending user-interaction events for an MUI window. "
+                           "Reading drains the queue (events are consumed).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "window_id": {
+                        "type": "string",
+                        "description": "Window ID from create_window"
+                    }
+                },
+                "required": ["window_id"]
+            }
+        }
+    }
+])
+
 
 def _tool_call_to_action(
     tool_name: str, args: dict[str, Any]

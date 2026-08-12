@@ -342,6 +342,96 @@ class TestTranscribeStage:
                                lambda *a: None, lambda *a: None, lambda: False)
         assert result.success is False
 
+    # ── Language guard: re-transcription in another language must not
+    #    reuse the existing SRT (regression: crash on None expected_srt) ──
+
+    @pytest.fixture
+    def srt_with_workspace(self, tmp_path):
+        ws_root = tmp_path / "ws"
+        ws_root.mkdir(exist_ok=True)
+        (ws_root / "metadata.json").write_text(json.dumps({
+            "segments_language": "es", "segments_count": 7,
+            "job_id": "sha256-test",
+            "whisper_audio_path": str(tmp_path / "audio.wav"),
+        }))
+        (tmp_path / "test_video.srt").write_text(
+            "1\n00:00:00,000 --> 00:00:01,000\nHola mundo\n",
+            encoding="utf-8")
+        (tmp_path / "audio.wav").write_bytes(b"RIFFfake")
+
+        class FakeWS:
+            def __init__(self, root):
+                self.root = Path(root)
+            def load_metadata(self):
+                return json.loads((self.root / "metadata.json").read_text())
+            def save_segments(self, segments, language, source="whisper"):
+                return True
+        return tmp_path, FakeWS(ws_root)
+
+    def _fake_loaded_stage(self):
+        from types import SimpleNamespace
+        from madrac.pipeline.stages import TranscribeStage as TS
+        stage = TS()
+        stage._loaded = True
+        stage._model = SimpleNamespace(
+            transcribe=lambda *a, **k: ([], SimpleNamespace(
+                language="es", language_probability=0.99)))
+        return stage
+
+    def _ctx(self, tmp_path, ws, **extra):
+        ctx = {
+            "ruta": str(tmp_path / "test_video.mp4"),
+            "file_stem": "test_video",
+            "audio_path": str(tmp_path / "audio.wav"),
+            "workspace": ws,
+        }
+        ctx.update(extra)
+        return ctx
+
+    @patch("madrac.pipeline.stages.transcribe.get_config")
+    def test_other_language_skips_existing_srt(self, mock_config, srt_with_workspace):
+        tmp_path, ws = srt_with_workspace
+        mock_config.side_effect = lambda key, default=None: {
+            "salida.formato": "srt", "salida.directorio": "",
+            "traduccion.idioma_destino": "es",
+        }.get(key, default)
+        stage = self._fake_loaded_stage()
+        result = stage.execute(
+            "id", self._ctx(tmp_path, ws, idioma="pt"),
+            lambda *a: None, lambda *a: None, lambda: False)
+        assert result.success is True
+        assert result.data.get("segment_count") == 0
+
+    @patch("madrac.pipeline.stages.transcribe.get_config")
+    def test_same_language_uses_existing_srt(self, mock_config, srt_with_workspace):
+        from madrac.pipeline.stages import TranscribeStage as TS
+        tmp_path, ws = srt_with_workspace
+        mock_config.side_effect = lambda key, default=None: {
+            "salida.formato": "srt", "salida.directorio": "",
+            "traduccion.idioma_destino": "es",
+        }.get(key, default)
+        stage = TS()
+        result = stage.execute(
+            "id", self._ctx(tmp_path, ws, idioma="es"),
+            lambda *a: None, lambda *a: None, lambda: False)
+        assert result.success is True
+        assert result.data.get("segment_count") == 1
+
+    @patch("madrac.pipeline.stages.transcribe.get_config")
+    def test_no_language_requested_uses_existing_srt(self, mock_config, srt_with_workspace):
+        from madrac.pipeline.stages import TranscribeStage as TS
+        tmp_path, ws = srt_with_workspace
+        mock_config.side_effect = lambda key, default=None: {
+            "salida.formato": "srt", "salida.directorio": "",
+            "traduccion.idioma_destino": "es",
+        }.get(key, default)
+        stage = TS()
+        result = stage.execute(
+            "id", self._ctx(tmp_path, ws),
+            lambda *a: None, lambda *a: None, lambda: False)
+        assert result.success is True
+        assert result.data.get("segment_count") == 1
+
 
 # ============================================================================
 # CommunityStage

@@ -105,26 +105,47 @@ class TranscribeStage(PipelineStage):
         idioma_destino = get_config("traduccion.idioma_destino", "es")
         expected_srt = Path(output_dir) / f"{file_stem}.{formato}"
         if expected_srt.exists():
-            on_log(f"Found existing subtitles: {expected_srt.name}")
-            from ..stages.format import cargar_desde_srt
-            try:
-                subtitulos = cargar_desde_srt(str(expected_srt))
-                if subtitulos:
-                    segment_list = [
-                        {"start": s.start, "end": s.end, "text": s.text}
-                        for s in subtitulos
-                    ]
-                    on_log(f"[OK] Loaded {len(segment_list)} segments from existing SRT (lang={idioma_destino})")
-                    on_progress(item_id, 70.0, "Existing SRT loaded")
-                    context["segments"] = segment_list
-                    context["original_lang"] = idioma_destino
-                    return StageResult(True, data={
-                        "segments": segment_list,
-                        "original_lang": idioma_destino,
-                        "segment_count": len(segment_list),
-                    })
-            except Exception as e:
-                on_log(f"[WARN] Fallback to Whisper: existing SRT load failed ({e})")
+            # ── Language guard: if a target language was requested and the
+            #    existing workspace segments are in a different language,
+            #    do NOT reuse the old SRT — re-process the pipeline. ──
+            usar_shortcut = True
+            idioma_pedido = context.get("idioma")
+            if idioma_pedido:
+                workspace = context.get("workspace")
+                lang_existente = None
+                if workspace is not None:
+                    try:
+                        meta = workspace.load_metadata() or {}
+                        lang_existente = meta.get("segments_language")
+                    except Exception:
+                        logger.warning("Could not read workspace language", exc_info=True)
+                if lang_existente and lang_existente != idioma_pedido:
+                    usar_shortcut = False
+                    on_log(
+                        f"[SKIP] Existing SRT is {lang_existente}, requested {idioma_pedido} "
+                        "- re-processing pipeline"
+                    )
+            if usar_shortcut:
+                on_log(f"Found existing subtitles: {expected_srt.name}")
+                from ..stages.format import cargar_desde_srt
+                try:
+                    subtitulos = cargar_desde_srt(str(expected_srt))
+                    if subtitulos:
+                        segment_list = [
+                            {"start": s.start, "end": s.end, "text": s.text}
+                            for s in subtitulos
+                        ]
+                        on_log(f"[OK] Loaded {len(segment_list)} segments from existing SRT (lang={idioma_destino})")
+                        on_progress(item_id, 70.0, "Existing SRT loaded")
+                        context["segments"] = segment_list
+                        context["original_lang"] = idioma_destino
+                        return StageResult(True, data={
+                            "segments": segment_list,
+                            "original_lang": idioma_destino,
+                            "segment_count": len(segment_list),
+                        })
+                except Exception as e:
+                    on_log(f"[WARN] Fallback to Whisper: existing SRT load failed ({e})")
 
         if not self._model and not self.load_model(on_log):
             return StageResult(False, error="Whisper model not available")

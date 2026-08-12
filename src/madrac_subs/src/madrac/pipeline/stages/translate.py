@@ -18,9 +18,7 @@ class TranslateStage(PipelineStage):
         super().__init__()
         self._gestor: Any = None
 
-    def _ensure_gestor(self, on_log: Callable) -> bool:
-        target_lang = get_config("traduccion.idioma_destino", "es")
-        target_motor = get_config("traduccion.motor", "marianmt")
+    def _ensure_gestor(self, on_log: Callable, target_lang: str, target_motor: str) -> bool:
         if self._gestor is not None and self._gestor.idioma_destino == target_lang and self._gestor.motor_tipo == target_motor:
             return True
         try:
@@ -37,7 +35,8 @@ class TranslateStage(PipelineStage):
             import importlib
             _trans_mod = importlib.import_module("translator")
             self._gestor = _trans_mod.GestorTraduccion.desde_config()
-            on_log(f"[OK] Translator loaded: {self._gestor.motor_tipo}")
+            self._gestor.idioma_destino = target_lang
+            on_log(f"[OK] Translator loaded: {self._gestor.motor_tipo} (target={target_lang})")
             return True
         except Exception as e:
             logger.exception("Failed to load translation engine: %s", e)
@@ -62,12 +61,13 @@ class TranslateStage(PipelineStage):
             return StageResult(True, data={"translated": False})
 
         original_lang = context.get("original_lang", "en")
-        idioma_destino = get_config("traduccion.idioma_destino", "es")
+        idioma_destino = context.get("idioma") or get_config("traduccion.idioma_destino", "es")
         if original_lang == idioma_destino:
             on_log(f"Original language is {original_lang} - no translation needed")
             return StageResult(True, data={"translated": False})
 
-        if not self._ensure_gestor(on_log):
+        target_motor = get_config("traduccion.motor", "marianmt")
+        if not self._ensure_gestor(on_log, idioma_destino, target_motor):
             return StageResult(False, error="Translation engine not available")
 
         # Build subtitle texts
@@ -98,6 +98,12 @@ class TranslateStage(PipelineStage):
 
             context["segments"] = translated
             if translated:
+                workspace = context.get("workspace")
+                if workspace is not None:
+                    try:
+                        workspace.save_segments(translated, idioma_destino, source="translate")
+                    except Exception:
+                        logger.warning("Failed to save translated segments to workspace", exc_info=True)
                 on_log(f"[OK] Translation complete. Sample: '{translated[0]['text'][:80]}'")
             else:
                 on_log("[OK] Translation complete")

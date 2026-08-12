@@ -120,3 +120,8 @@ src/madrac_dubbing/plugins/
 # Config files — may contain API keys
 src/madrac_subs/config.json
 src/madrac_asistente/config.json
+
+# Local runtime artifacts
+.cache/
+check_mic.py
+plugins/

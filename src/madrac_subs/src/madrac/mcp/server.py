@@ -28,6 +28,13 @@ from .tools.workspace import (
     edit_subtitle_segment,
     export_srt,
 )
+from .tools.ui import (
+    create_window,
+    update_widget,
+    close_window,
+    list_windows,
+    get_window_events,
+)
 from .resources.queue import get_queue_estado_resource, get_queue_progreso_resource
 from .resources.config import get_config_actual_resource
 from .resources.logs import get_ultimos_logs_resource
@@ -46,6 +53,7 @@ def create_server(app_state: dict[str, Any]) -> FastMCP:
         config_manager    — ConfigManager instance
         dubbing_manager   — DubbingManager instance (optional)
         assistant_manager — AssistantManager instance (optional)
+        ui_manager        — UIManager instance (optional, for MUI tools)
         log_buffer        — collections.deque ring buffer (optional)
     """
     global _app_state
@@ -73,6 +81,12 @@ def create_server(app_state: dict[str, Any]) -> FastMCP:
     mcp.tool(name="rename_speaker")(rename_speaker(_app_state))
     mcp.tool(name="edit_subtitle_segment")(edit_subtitle_segment(_app_state))
     mcp.tool(name="export_srt")(export_srt(_app_state))
+    # MUI window tools
+    mcp.tool(name="create_window")(create_window(_app_state))
+    mcp.tool(name="update_widget")(update_widget(_app_state))
+    mcp.tool(name="close_window")(close_window(_app_state))
+    mcp.tool(name="list_windows")(list_windows(_app_state))
+    mcp.tool(name="get_window_events")(get_window_events(_app_state))
 
     # ── Resources ─────────────────────────────────────────────────
     mcp.resource(
@@ -99,7 +113,7 @@ def create_server(app_state: dict[str, Any]) -> FastMCP:
         description="Last N log entries from ring buffer",
     )(get_ultimos_logs_resource(_app_state))
 
-    logger.info("MADRAC MCP server created (15 tools, 4 resources)")
+    logger.info("MADRAC MCP server created (20 tools, 4 resources)")
     return mcp
 
 

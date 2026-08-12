@@ -36,6 +36,7 @@ from .dialogs.editor_dialog import EditorDialog
 from .dub_dialog import DubDialog
 from ..assistant.manager import AssistantManager
 from ..dubbing.manager import DubbingManager
+from ..ui.mui import UIManager
 from .i18n import _
 
 logger = get_logger("ui.main_window")
@@ -151,6 +152,7 @@ class MainWindow(QMainWindow):
         self._asistente_mgr.state_changed.connect(self._on_asistente_state)
         self._asistente_mgr.error_occurred.connect(self._on_asistente_error)
         self._asistente_mgr.log_message.connect(self._append_log)
+        self._ui_manager = UIManager(self)
         if CLIENTE.is_logged_in():
             QTimer.singleShot(0, self._check_community_batch)
 
@@ -661,6 +663,7 @@ class MainWindow(QMainWindow):
             "config_manager": self._config_mgr,
             "dubbing_manager": DubbingManager(dubs_python),
             "assistant_manager": self._asistente_mgr,
+            "ui_manager": self._ui_manager,
             "log_buffer": log_buffer,
         }
 

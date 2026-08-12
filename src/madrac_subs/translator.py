@@ -754,9 +754,27 @@ class GestorTraduccion:
 		"""
 		self.motor_tipo = motor
 		self._kwargs = kwargs.copy()
-		self.idioma_destino = kwargs.get('idioma_destino', 'es')
+		self._idioma_destino = kwargs.get('idioma_destino', 'es')
 		self.motor = self._crear_motor(motor, **kwargs)
 		self._motores_cache: Dict[str, TraductorBase] = {motor: self.motor}
+
+	@property
+	def idioma_destino(self) -> str:
+		"""Idioma destino. Al asignarlo, sincroniza tambien los motores internos."""
+		return self._idioma_destino
+
+	@idioma_destino.setter
+	def idioma_destino(self, value: str) -> None:
+		self._idioma_destino = value
+		_motores = getattr(self, "_motores_cache", {})
+		if _motores:
+			self.motor.idioma_destino = value
+			for _m in _motores.values():
+				try:
+					_m.idioma_destino = value
+				except Exception:
+					pass
+		return None
 
 	def _crear_motor(self, tipo: str, **kwargs) -> TraductorBase:
 		"""

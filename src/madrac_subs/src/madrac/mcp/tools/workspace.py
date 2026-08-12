@@ -236,11 +236,14 @@ def export_srt(app_state: dict[str, Any]):
             if output_path:
                 srt_path = Path(output_path)
             else:
-                meta = ws.load_metadata()
+                meta = ws.load_metadata() or {}
                 source = meta.get("source", {})
-                source_path = Path(source.get("path", ""))
+                source_video = source.get("path", "") if isinstance(source, dict) else ""
+                if not source_video:
+                    source_video = meta.get("source_video", "")
+                source_path = Path(source_video)
                 if source_path.exists():
-                    srt_path = source_path.with_suffix("").parent / \
+                    srt_path = source_path.with_suffix("") .parent / \
                         f"{source_path.stem}_edited.srt"
                 else:
                     srt_path = ws.root / "output.srt"

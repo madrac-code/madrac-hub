@@ -154,8 +154,10 @@ class QueueManager:
 
     # ---- CRUD ----
 
-    def add(self, ruta: str) -> QueueEntry:
+    def add(self, ruta: str, metadata: Optional[Dict[str, Any]] = None) -> QueueEntry:
         entry = QueueEntry.new(ruta)
+        if metadata:
+            entry.metadata = {**entry.metadata, **metadata}
         with self._lock:
             self._items[entry.id] = entry
             self._order.append(entry.id)

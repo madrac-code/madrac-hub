@@ -138,7 +138,7 @@ class TestTranscriptionTools:
         tool = transcribe_file(app_state)
         result = await tool(str(video), "es")
         assert "queued" in result.lower()
-        app_state["queue_manager"].add.assert_called_once_with(str(video))
+        app_state["queue_manager"].add.assert_called_once_with(str(video), metadata={"idioma": "es"})
 
     @pytest.mark.asyncio
     async def test_transcribe_file_no_manager(self):

@@ -23,7 +23,7 @@ def transcribe_file(app_state: dict[str, Any]):
             path = Path(ruta)
             if not path.exists():
                 return f"Error: file not found: {ruta}"
-            entry = qm.add(ruta)
+            entry = qm.add(ruta, metadata={"idioma": idioma})
             worker = app_state.get("worker")
             if worker is not None and hasattr(worker, "isRunning"):
                 if not worker.isRunning():

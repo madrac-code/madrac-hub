@@ -75,7 +75,7 @@ class TestMCPHttpServer:
             response = await server._handle_health(request)
             body = json.loads(response.text)
             assert body["status"] == "ok"
-            assert body["tools"] == 15
+            assert body["tools"] == 20
             assert body["resources"] == 4
 
     @pytest.mark.asyncio
@@ -86,7 +86,7 @@ class TestMCPHttpServer:
             server = MCPHttpServer(mock_app_state)
             result = await server._dispatch("tools/list", {})
             assert "tools" in result
-            assert len(result["tools"]) == 15
+            assert len(result["tools"]) == 20
 
     @pytest.mark.asyncio
     async def test_dispatch_unknown_method(self, mock_app_state, tmp_path):

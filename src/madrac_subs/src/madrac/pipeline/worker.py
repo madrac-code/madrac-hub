@@ -134,6 +134,10 @@ class PipelineWorker(QThread if HAS_QT else object):
         self._emit_started(item_id)
 
         context: Dict[str, Any] = {"ruta": item.ruta}
+        if getattr(item, "metadata", None):
+            idioma_pedido = item.metadata.get("idioma")
+            if idioma_pedido:
+                context["idioma"] = idioma_pedido
         success = False
         error_msg = ""
 

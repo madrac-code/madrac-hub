@@ -40,14 +40,36 @@ def translate_subtitles(app_state: dict[str, Any]):
             if src.is_dir() and str(src) not in _sys.path:
                 _sys.path.insert(0, str(src))
 
+            from ...pipeline.stages.format import cargar_desde_srt, _ts_srt
+
+            subtitulos = cargar_desde_srt(str(srt_path))
+            if not subtitulos:
+                return f"Error: no subtitles parsed from {archivo_srt}"
+
             trans_mod = importlib.import_module("translator")
             gestor = trans_mod.GestorTraduccion.desde_config()
             gestor.idioma_destino = idioma_destino
             gestor.motor_tipo = motor
-            gestor.cargar_modelo()
+            if gestor.motor_tipo != motor:
+                from importlib import import_module as _im
+                cls = _im("translator").GestorTraduccion
+                gestor = cls(motor=motor, idioma_destino=idioma_destino)
+
+            textos = [s.text for s in subtitulos]
+            traducciones = gestor.traducir_lote(
+                textos,
+                idioma_origen="auto",
+                debe_cancelar=lambda: False,
+            )
+            if len(traducciones) != len(textos):
+                return "Error: translation returned mismatched count"
 
             output_path = srt_path.with_name(f"{srt_path.stem}_{idioma_destino}{srt_path.suffix}")
-            gestor.traducir_archivo(str(srt_path), str(output_path))
+            contenido = "\n".join(
+                f"{i + 1}\n{_ts_srt(s.start)} --> {_ts_srt(s.end)}\n{traducciones[i]}"
+                for i, s in enumerate(subtitulos)
+            )
+            output_path.write_text(contenido + "\n", encoding="utf-8-sig")
             return str(output_path)
         except Exception as e:
             return f"Error translating: {e}"

@@ -184,6 +184,13 @@ class MCPHttpServer:
             edit_subtitle_segment,
             export_srt,
         )
+        from .tools.ui import (
+            create_window,
+            update_widget,
+            close_window,
+            list_windows,
+            get_window_events,
+        )
 
         tool_map = {
             "get_queue_status": get_queue_status(self.app_state),
@@ -201,6 +208,11 @@ class MCPHttpServer:
             "rename_speaker": rename_speaker(self.app_state),
             "edit_subtitle_segment": edit_subtitle_segment(self.app_state),
             "export_srt": export_srt(self.app_state),
+            "create_window": create_window(self.app_state),
+            "update_widget": update_widget(self.app_state),
+            "close_window": close_window(self.app_state),
+            "list_windows": list_windows(self.app_state),
+            "get_window_events": get_window_events(self.app_state),
         }
 
         if name not in tool_map:
@@ -214,7 +226,10 @@ class MCPHttpServer:
             return {"error": str(e)}
 
     async def _read_resource(self, uri: str) -> Any:
-        """Read a registered MCP resource by URI."""
+        """Read a registered MCP resource by URI.
+        FUTURE_IMPROVEMENT: MUI events are exposed as a tool (get_window_events)
+        in Phase 1. Migrate to a resource uri://events/<window_id> in Phase 2.
+        """
         from .resources.queue import get_queue_estado_resource, get_queue_progreso_resource
         from .resources.config import get_config_actual_resource
         from .resources.logs import get_ultimos_logs_resource
