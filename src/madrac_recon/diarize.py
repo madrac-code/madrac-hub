@@ -66,9 +66,18 @@ def _embed_frames(wav: np.ndarray) -> np.ndarray:
     """Compute voice embeddings for sliding windows of the audio."""
     from resemblyzer import VoiceEncoder  # noqa: PLC0415
 
-    encoder = VoiceEncoder()
-    frames = encoder.embed_frames(wav)
-    return frames
+    encoder = VoiceEncoder(verbose=False)
+    win = int(WINDOW_S * TARGET_SR)
+    hop = int(HOP_S * TARGET_SR)
+    frames = []
+    for start in range(0, len(wav) - win + 1, hop):
+        chunk = wav[start : start + win]
+        frames.append(encoder.embed_utterance(chunk))
+    if not frames:
+        raise ValueError(
+            f"Audio too short to diarize (need at least {WINDOW_S}s)"
+        )
+    return np.vstack(frames)
 
 
 def _cluster_frames(

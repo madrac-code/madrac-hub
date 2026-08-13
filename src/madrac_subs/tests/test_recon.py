@@ -175,3 +175,27 @@ class TestDiarizeTool:
         tool = diarize_speakers({})
         result = await tool(job_id="sha256-0000000000000000")
         assert "error" in result
+
+
+def _pretrained_model_available() -> bool:
+    """True when the real resemblyzer pretrained.pt is bundled in the venv."""
+    try:
+        import resemblyzer
+    except ImportError:
+        return False
+    return (Path(resemblyzer.__file__).parent / "pretrained.pt").exists()
+
+
+@pytest.mark.skipif(
+    not _pretrained_model_available(),
+    reason="resemblyzer pretrained.pt not present (run once with internet)",
+)
+def test_embed_frames_real_encoder_api(tmp_path):
+    """Real VoiceEncoder smoke test: PyPI 0.1.4 has no embed_frames method."""
+    from madrac_recon import diarize as recon
+
+    samples = np.random.default_rng(0).uniform(-1, 1, 4 * 16000).astype(np.float32)
+    embeds = recon._embed_frames(samples)
+    assert embeds.ndim == 2
+    assert embeds.shape[0] >= 1
+    assert embeds.shape[1] == 256
