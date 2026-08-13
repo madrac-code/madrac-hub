@@ -8,7 +8,8 @@ Security:
 """
 from typing import Any
 
-# Whitelist: the 15 original MCP tools that buttons may invoke.
+# Whitelist: the 15 original MCP tools + the 5 MUI tools that
+# buttons may invoke.
 _BUTTON_TOOL_WHITELIST = frozenset({
     "get_queue_status",
     "pause_processing",
@@ -25,6 +26,11 @@ _BUTTON_TOOL_WHITELIST = frozenset({
     "rename_speaker",
     "edit_subtitle_segment",
     "export_srt",
+    "create_window",
+    "update_widget",
+    "close_window",
+    "list_windows",
+    "get_window_events",
 })
 
 # Internal actions handled locally by UIManager.
@@ -69,9 +75,14 @@ def create_window(app_state: dict[str, Any]):
         for w in widgets:
             if not isinstance(w, dict) or w.get("type") != "button":
                 continue
-            action = w.get("action", {})
-            if not isinstance(action, dict):
-                return {"error": "Button action must be an object"}
+            from madrac.ui.mui.factory import normalize_button_action
+            action = normalize_button_action(w)
+            if not isinstance(action, dict) or not action:
+                return {
+                    "error": "Button action needs 'tool' or 'internal'. "
+                             "Expected: {\"action\":{\"tool\":\"...\"}} "
+                             "or flat {\"tool\":\"...\"}"
+                }
             if "tool" in action:
                 if action["tool"] not in _BUTTON_TOOL_WHITELIST:
                     return {
@@ -85,7 +96,11 @@ def create_window(app_state: dict[str, Any]):
                                  f"'{action['internal']}' is not allowed"
                     }
             else:
-                return {"error": "Button action needs 'tool' or 'internal'"}
+                return {
+                    "error": "Button action needs 'tool' or 'internal'. "
+                             "Expected: {\"action\":{\"tool\":\"...\"}} "
+                             "or flat {\"tool\":\"...\"}"
+                }
 
         return ui.create_window(
             title, job_id, widgets, keybindings or {}

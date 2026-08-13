@@ -130,6 +130,25 @@ class TestMCPHttpServer:
             result = await server._read_resource("queue://estado")
             assert isinstance(result, dict)
 
+    @pytest.mark.asyncio
+    async def test_handle_mcp_invalid_json_includes_parser_detail(
+        self, mock_app_state, tmp_path
+    ):
+        import json as _json
+        from madrac.mcp.http_server import MCPHttpServer
+        with patch("madrac.mcp.auth.TOKEN_PATH",
+                   tmp_path / "mcp_token.txt"):
+            server = MCPHttpServer(mock_app_state)
+            request = MagicMock()
+            request.json = AsyncMock(
+                side_effect=_json.JSONDecodeError("Expecting value", "{", 0)
+            )
+            response = await server._handle_mcp(request)
+            assert response.status == 400
+            body = _json.loads(response.text)
+            assert "error" in body
+            assert "Expecting value" in body["error"]
+
 
 class TestMADRACAgent:
     def test_agent_loads_token(self, token_file):

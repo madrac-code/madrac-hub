@@ -12,7 +12,9 @@ from PySide6.QtWidgets import (
 )
 
 from madrac.ui.mui.events import UIEvent, WindowEventQueue
-from madrac.ui.mui.factory import validate_action, create_widget
+from madrac.ui.mui.factory import (
+    validate_action, create_widget, normalize_button_action,
+)
 from madrac.ui.mui.manager import UIManager, MUIWindow, MAX_WINDOWS
 
 
@@ -120,6 +122,55 @@ class TestFactory:
         assert isinstance(w, QPushButton)
         assert not w.isEnabled()
 
+    def test_button_flat_tool_fallback_emits_event(self, qtbot):
+        events = []
+        w = create_widget(
+            {"type": "button", "id": "b1", "text": "Go",
+             "tool": "get_segments", "params": {"job_id": "x"}},
+            on_event=lambda t, wid, p: events.append((t, wid, p)),
+            window_id="w1",
+        )
+        assert isinstance(w, QPushButton)
+        assert w.isEnabled()
+        qtbot.mouseClick(w, Qt.MouseButton.LeftButton)
+        assert len(events) == 1
+        etype, wid, payload = events[0]
+        assert etype == "button_click"
+        assert payload["action"]["tool"] == "get_segments"
+        assert payload["action"]["params"] == {"job_id": "x"}
+
+    def test_button_flat_internal_fallback_emits_event(self, qtbot):
+        events = []
+        w = create_widget(
+            {"type": "button", "id": "b1", "text": "Close",
+             "internal": "close_window"},
+            on_event=lambda t, wid, p: events.append((t, wid, p)),
+            window_id="w1",
+        )
+        assert w.isEnabled()
+        qtbot.mouseClick(w, Qt.MouseButton.LeftButton)
+        assert events[0][2]["action"]["internal"] == "close_window"
+
+    def test_button_nested_action_wins_over_flat(self, qtbot):
+        events = []
+        w = create_widget(
+            {"type": "button", "id": "b1", "text": "Go",
+             "action": {"tool": "get_segments"},
+             "tool": "get_queue_status"},
+            on_event=lambda t, wid, p: events.append((t, wid, p)),
+            window_id="w1",
+        )
+        qtbot.mouseClick(w, Qt.MouseButton.LeftButton)
+        assert events[0][2]["action"]["tool"] == "get_segments"
+
+    def test_button_no_action_disabled(self, qtbot):
+        w = create_widget(
+            {"type": "button", "id": "b1", "text": "Nada"},
+            on_event=lambda *a: None, window_id="w1",
+        )
+        assert isinstance(w, QPushButton)
+        assert not w.isEnabled()
+
     def test_table_readonly(self, qtbot):
         w = create_widget(
             {"type": "table", "id": "t1", "columns": ["A", "B"],
@@ -172,6 +223,32 @@ class TestFactory:
 
 
 # â”€â”€â”€ UIManager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+class TestNormalizeButtonAction:
+    def test_nested_action_passthrough(self):
+        d = {"action": {"tool": "get_segments"}}
+        assert normalize_button_action(d) == {"tool": "get_segments"}
+
+    def test_flat_tool_fallback(self):
+        d = {"tool": "get_segments", "params": {"job_id": "x"}}
+        assert normalize_button_action(d) == {
+            "tool": "get_segments", "params": {"job_id": "x"},
+        }
+
+    def test_flat_internal_fallback(self):
+        d = {"internal": "close_window"}
+        assert normalize_button_action(d) == {"internal": "close_window"}
+
+    def test_nested_empty_falls_back_to_flat(self):
+        d = {"action": {}, "tool": "get_segments"}
+        assert normalize_button_action(d) == {"tool": "get_segments"}
+
+    def test_no_action_returns_empty(self):
+        assert normalize_button_action({"text": "x"}) == {}
+
+    def test_non_dict_action_ignored(self):
+        assert normalize_button_action({"action": "nested"}) == {}
+
 
 class TestUIManager:
     def test_create_window(self, qtbot):
@@ -316,3 +393,59 @@ class TestMuiTools:
         tool = get_window_events({"ui_manager": ui})
         result = await tool("x")
         assert "error" in result
+
+    @pytest.mark.asyncio
+    async def test_create_window_button_no_action_returns_example(self):
+        from madrac.mcp.tools.ui import create_window
+        ui = MagicMock()
+        tool = create_window({"ui_manager": ui})
+        result = await tool("T", [
+            {"type": "button", "id": "b1", "text": "Sin accion"},
+        ])
+        assert "error" in result
+        assert "Expected" in result["error"]
+        assert "action" in result["error"]
+        ui.create_window.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_create_window_button_flat_tool_accepted(self):
+        from madrac.mcp.tools.ui import create_window
+        ui = MagicMock()
+        ui.create_window.return_value = {"window_id": "abc12345",
+                                         "status": "created"}
+        tool = create_window({"ui_manager": ui})
+        result = await tool("T", [
+            {"type": "button", "id": "b1", "text": "Segs",
+             "tool": "get_segments", "params": {"job_id": "x"}},
+        ])
+        assert result["status"] == "created"
+
+    @pytest.mark.asyncio
+    async def test_create_window_button_flat_internal_accepted(self):
+        from madrac.mcp.tools.ui import create_window
+        ui = MagicMock()
+        ui.create_window.return_value = {"window_id": "abc12345",
+                                         "status": "created"}
+        tool = create_window({"ui_manager": ui})
+        result = await tool("T", [
+            {"type": "button", "id": "b1", "text": "Cerrar",
+             "internal": "close_window"},
+        ])
+        assert result["status"] == "created"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("mui_tool", [
+        "create_window", "update_widget", "close_window",
+        "list_windows", "get_window_events",
+    ])
+    async def test_create_window_button_allows_mui_tools(self, mui_tool):
+        from madrac.mcp.tools.ui import create_window
+        ui = MagicMock()
+        ui.create_window.return_value = {"window_id": "abc12345",
+                                         "status": "created"}
+        tool = create_window({"ui_manager": ui})
+        result = await tool("T", [
+            {"type": "button", "id": "b1", "text": mui_tool,
+             "action": {"tool": mui_tool}},
+        ])
+        assert result["status"] == "created", mui_tool

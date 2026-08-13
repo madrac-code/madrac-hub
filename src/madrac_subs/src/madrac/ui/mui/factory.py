@@ -45,6 +45,32 @@ def validate_action(action: dict) -> bool:
     return False
 
 
+def normalize_button_action(d: dict) -> dict:
+    """
+    Resolve the action for a button descriptor.
+
+    Priority:
+      1. d["action"] (nested dict) — canonical format.
+      2. Flat fallback: d["tool"] or d["internal"] at widget level.
+
+    Returns the resolved action dict, or {} if none is valid.
+    """
+    action = d.get("action")
+    if not isinstance(action, dict):
+        action = {}
+    if not validate_action(action):
+        flat = {}
+        if d.get("tool"):
+            flat["tool"] = d["tool"]
+        elif d.get("internal"):
+            flat["internal"] = d["internal"]
+        if flat:
+            if "params" in d and isinstance(d.get("params"), dict):
+                flat["params"] = d["params"]
+            action = flat
+    return action
+
+
 def create_widget(
     descriptor: dict[str, Any],
     on_event: Callable,
@@ -105,7 +131,7 @@ def _make_button(
     wid: str,
 ) -> QPushButton:
     btn = QPushButton(d.get("text", "Button"))
-    action = d.get("action", {})
+    action = normalize_button_action(d)
 
     if not validate_action(action):
         logger.warning("Button %s has invalid action — disabling", wid)

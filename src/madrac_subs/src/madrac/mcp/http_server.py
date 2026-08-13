@@ -125,10 +125,10 @@ class MCPHttpServer:
         """
         try:
             body = await request.json()
-        except Exception:
+        except Exception as e:
             return web.Response(
                 status=400,
-                text=json.dumps({"error": "Invalid JSON"}),
+                text=json.dumps({"error": f"Invalid JSON: {e}"}),
                 content_type="application/json",
             )
 
