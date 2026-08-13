@@ -543,7 +543,7 @@ VIDEO INPUT
 | **Model Name Incorrecto (gemini-3.5-flash)** | ✅ RESUELTO | — | Corregido a `gemini-2.5-flash` / `gemini-1.5-flash` |
 | **Claude Desktop ignora `cwd` en Windows** | 🟡 BAJO | Documentado (ADR-008) | Usar paths absolutos en `args` |
 | **Audio device blocker (Windows PortAudio MME/WDM-KS)** | 🟡 BAJO | Documentado LLAVE-005 | Workaround: resample en callback mode |
-| **MUI button JSON format** | ✅ RESUELTO | e91f093 | Descriptor normalizado (action anidado o tool/internal plano) + whitelist MUI ampliada; documentado en AI_READY_CODEBASE.md |
+| **MUI button JSON format** | ✅ RESUELTO | fc63168 | Descriptor normalizado (action anidado o tool/internal plano) + whitelist MUI ampliada; documentado en AI_READY_CODEBASE.md |
 
 ---
 
