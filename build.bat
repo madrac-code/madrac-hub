@@ -50,6 +50,10 @@ if not exist requirements.txt (
     echo ERROR: requirements.txt no encontrado
     exit /b 1
 )
+if not exist requirements-recon.txt (
+    echo ERROR: requirements-recon.txt no encontrado
+    exit /b 1
+)
 echo [OK] Estructura verificada
 
 echo.
@@ -93,6 +97,13 @@ python -m pip install --upgrade pip -q
 python -m pip install -r requirements.txt -q
 if !errorlevel! neq 0 (
     echo [WARN] pip reporto errores. Revisar requisitos
+    pause
+    exit /b 1
+)
+REM RECON deps without the obsolete 'typing' backport (breaks PyInstaller)
+python -m pip install --no-deps -r requirements-recon.txt -q
+if !errorlevel! neq 0 (
+    echo [WARN] pip reporto errores en requirements-recon.txt
     pause
     exit /b 1
 )

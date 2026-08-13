@@ -1,0 +1,6 @@
+# RECON dependencies — installed with --no-deps (see build.bat):
+# resemblyzer declares the obsolete 'typing' backport as a dependency,
+# which breaks PyInstaller. Its real deps (torch, librosa, numpy, scipy)
+# are declared in requirements.txt.
+resemblyzer==0.1.4
+webrtcvad>=2.0.10
