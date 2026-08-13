@@ -35,6 +35,7 @@ from .tools.ui import (
     list_windows,
     get_window_events,
 )
+from .tools.recon import diarize_speakers
 from .resources.queue import get_queue_estado_resource, get_queue_progreso_resource
 from .resources.config import get_config_actual_resource
 from .resources.logs import get_ultimos_logs_resource
@@ -87,6 +88,8 @@ def create_server(app_state: dict[str, Any]) -> FastMCP:
     mcp.tool(name="close_window")(close_window(_app_state))
     mcp.tool(name="list_windows")(list_windows(_app_state))
     mcp.tool(name="get_window_events")(get_window_events(_app_state))
+    # RECON tools
+    mcp.tool(name="diarize_speakers")(diarize_speakers(_app_state))
 
     # ── Resources ─────────────────────────────────────────────────
     mcp.resource(
@@ -113,7 +116,7 @@ def create_server(app_state: dict[str, Any]) -> FastMCP:
         description="Last N log entries from ring buffer",
     )(get_ultimos_logs_resource(_app_state))
 
-    logger.info("MADRAC MCP server created (20 tools, 4 resources)")
+    logger.info("MADRAC MCP server created (21 tools, 4 resources)")
     return mcp
 
 

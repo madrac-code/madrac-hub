@@ -42,6 +42,7 @@ def get_workspace_info(app_state: dict[str, Any]):
                     "full_audio": has_full,
                     "segments": has_segments,
                     "stems": has_stems,
+                    "speakers": ws.has_speakers(),
                 },
             }
         except FileNotFoundError:
@@ -74,6 +75,7 @@ def list_workspaces(app_state: dict[str, Any]):
                         "full_audio": ws.has_full_audio(),
                         "segments": ws.has_segments(),
                         "stems": ws.has_stems(),
+                        "speakers": ws.has_speakers(),
                     },
                 })
             return {"workspaces": workspaces}

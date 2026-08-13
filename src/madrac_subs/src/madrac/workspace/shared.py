@@ -94,6 +94,34 @@ class SharedWorkspace:
         (self.root / "stems" / "speakers").mkdir(exist_ok=True)
         (self.root / "dubbed").mkdir(exist_ok=True)
 
+    @property
+    def speakers_dir(self) -> Path:
+        """Directory for per-speaker audio files (stems/speakers)."""
+        return self.root / "stems" / "speakers"
+
+    def save_speaker(self, speaker_id: int, wav_path: Path) -> bool:
+        """Copy a speaker's audio clip to stems/speakers/speaker_N.wav.
+
+        RECON Phase 1 contract: each speaker gets one concatenated WAV
+        (16kHz mono PCM16) of their turns in the source audio.
+        """
+        if not wav_path.exists():
+            logger.warning(f"Speaker audio not found: {wav_path}")
+            return False
+        dest = self.speakers_dir / f"speaker_{speaker_id}.wav"
+        try:
+            shutil.copy2(wav_path, dest)
+            logger.info(f"Saved speaker {speaker_id} to workspace: {dest}")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to save speaker {speaker_id}: {e}")
+            return False
+
+    def has_speakers(self) -> bool:
+        """Check if any speaker audio files exist in the workspace."""
+        d = self.speakers_dir
+        return d.exists() and any(d.glob("speaker_*.wav"))
+
     @classmethod
     def open(cls, video_path: Path) -> "SharedWorkspace":
         """Open (or create) workspace for a video file.

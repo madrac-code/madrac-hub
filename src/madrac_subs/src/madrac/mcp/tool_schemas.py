@@ -391,6 +391,40 @@ MADRAC_TOOL_SCHEMAS.extend([
                 "required": ["window_id"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "diarize_speakers",
+            "description": "Diarize speakers for a workspace job and persist "
+                           "them (stems/speakers/speaker_N.wav + speakers.json).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "description": "Workspace job ID (sha256-<hex>). "
+                                       "Mutually exclusive with video_path"
+                    },
+                    "video_path": {
+                        "type": "string",
+                        "description": "Absolute path to the source video "
+                                       "(computes the job ID)"
+                    },
+                    "min_speakers": {
+                        "type": "integer",
+                        "description": "Minimum number of speakers to look for",
+                        "default": 1
+                    },
+                    "max_speakers": {
+                        "type": "integer",
+                        "description": "Maximum number of speakers to look for",
+                        "default": 8
+                    }
+                },
+                "required": []
+            }
+        }
     }
 ])
 

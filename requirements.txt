@@ -33,6 +33,7 @@ soundfile>=0.12.1
 pyloudnorm==0.1.0
 xxhash>=3.0
 demucs>=4.0
+resemblyzer==0.1.4
 
 # NUMERICS
 numpy>=2.0.0
