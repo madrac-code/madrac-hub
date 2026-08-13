@@ -334,6 +334,34 @@ class TestUIManager:
         events = mgr.get_window_events(wid)
         assert any(e["event_type"] == "window_closed" for e in events["events"])
 
+    def test_window_closed_visible_after_mcp_close(self, qtbot):
+        mgr = UIManager()
+        result = mgr.create_window(
+            "Test", "", [{"type": "label", "id": "l1", "text": "Hola"}], {}
+        )
+        _process_events()
+        wid = result["window_id"]
+        assert mgr.close_window(wid)["success"] is True
+        _process_events()
+        events = mgr.get_window_events(wid)
+        assert any(e["event_type"] == "window_closed"
+                   for e in events["events"])
+
+    def test_closed_window_events_one_shot(self, qtbot):
+        mgr = UIManager()
+        result = mgr.create_window(
+            "Test", "", [{"type": "label", "id": "l1", "text": "Hola"}], {}
+        )
+        _process_events()
+        wid = result["window_id"]
+        assert mgr.close_window(wid)["success"] is True
+        _process_events()
+        first = mgr.get_window_events(wid)
+        assert any(e["event_type"] == "window_closed"
+                   for e in first["events"])
+        second = mgr.get_window_events(wid)
+        assert "error" in second
+
 
 # â”€â”€â”€ MCP Tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 

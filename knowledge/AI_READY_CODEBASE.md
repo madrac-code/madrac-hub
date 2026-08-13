@@ -150,7 +150,6 @@ MEDIUM PRIORITY:
   [ ] MUI Phase 2: timeline widget + mixer + keybindings (Space=record)
   [ ] RECON component: 3-channel audio editor (background/dubbed/mix)
   [ ] madrac-recon: voice cloning + custom wakeword training
-  [ ] MUI button format: fix JSON serialization of widgets array
 
 LOW PRIORITY:
   [ ] MUI Phase 3: community templates in madrac-subs-web

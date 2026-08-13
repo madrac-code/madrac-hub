@@ -88,6 +88,9 @@ class UIManager(QObject):
         super().__init__(parent)
         self._windows: dict[str, MUIWindow] = {}
         self._event_queues: dict[str, WindowEventQueue] = {}
+        # Events drained from closed windows, kept for one-shot reads so
+        # clients can observe window_closed after close_window().
+        self._closed_events: dict[str, list] = {}
         # window_ids emitted but not yet materialized on the Qt thread —
         # needed to enforce MAX_WINDOWS from the MCP thread (async creation)
         self._pending: set[str] = set()
@@ -136,9 +139,12 @@ class UIManager(QObject):
 
     def get_window_events(self, window_id: str) -> dict:
         """Drain pending events for a window. Thread-safe (queue is safe)."""
-        if window_id not in self._event_queues:
+        if window_id in self._event_queues:
+            events = self._event_queues[window_id].drain()
+        elif window_id in self._closed_events:
+            events = self._closed_events.pop(window_id)
+        else:
             return {"error": f"Window {window_id} not found"}
-        events = self._event_queues[window_id].drain()
         return {
             "window_id": window_id,
             "events": [
@@ -237,7 +243,11 @@ class UIManager(QObject):
         if win:
             win.close()
             win.deleteLater()
-        self._event_queues.pop(window_id, None)
+        eq = self._event_queues.pop(window_id, None)
+        if eq is not None:
+            # Preserve events (e.g. window_closed emitted on close) for
+            # one-shot reads via get_window_events.
+            self._closed_events[window_id] = eq.drain()
         logger.info("MUI window closed: %s", window_id)
 
     @Slot(str, str, str)
