@@ -93,7 +93,11 @@ MUI button whitelist — not a Phase 1 requirement.
 
 ## Consequences
 
-- New hub dependency: `resemblyzer==0.1.4` (pinned in requirements.txt).
-- First real run downloads the pretrained encoder (~86MB) from GitHub.
+- New hub dependency: `resemblyzer==0.1.4` (pinned in requirements-recon.txt,
+  installed with `--no-deps` to avoid the obsolete `typing` backport that
+  breaks PyInstaller; real deps are declared in requirements.txt).
+- The pretrained encoder (16.3MB) is bundled into the PyInstaller exe
+  (`collect_data_files('resemblyzer')`) — onefile temp dirs are not
+  writable/persistent, so first-run download would not work there.
 - Model is loaded per run; a long-running app could cache the encoder
   later (out of Phase 1).
