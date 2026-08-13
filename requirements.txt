@@ -33,7 +33,10 @@ soundfile>=0.12.1
 pyloudnorm==0.1.0
 xxhash>=3.0
 demucs>=4.0
-resemblyzer==0.1.4
+# --no-deps: resemblyzer declares the obsolete 'typing' backport as a dep,
+# which breaks PyInstaller. All its real deps are declared here.
+resemblyzer==0.1.4 --no-deps
+webrtcvad>=2.0.10
 
 # NUMERICS
 numpy>=2.0.0
