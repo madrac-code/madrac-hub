@@ -7,6 +7,7 @@ by manual/E2E runs, not CI.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -394,3 +395,275 @@ class TestMapSegments:
 
         assert result["status"] == "done"
         assert result["mapped_count"] == 1
+
+
+class TestCharacterIdentity:
+    """Tests for RECON Character Identity: speaker_id → character_id mapping."""
+
+    def _make_speakers(self, ws: SharedWorkspace, speakers: list[dict]) -> None:
+        """Write speakers.json with given speakers."""
+        speakers_data = {
+            "schema_version": "1.0",
+            "diarizer": "resemblyzer",
+            "sample_rate": 16000,
+            "source_audio": str(ws.root / "audio_whisper.wav"),
+            "speaker_count": len(speakers),
+            "speakers": speakers,
+        }
+        (ws.root / "speakers.json").write_text(json.dumps(speakers_data), encoding="utf-8")
+
+    def test_save_load_characters(self, tmp_path):
+        """Basic save/load roundtrip for characters."""
+        from madrac.workspace import SharedWorkspace
+
+        ws = _make_job(tmp_path)
+        self._make_speakers(ws, [
+            {"speaker_id": "speaker_0", "name": "Speaker 1", "segments": [{"start": 0.0, "end": 10.0}]},
+            {"speaker_id": "speaker_1", "name": "Speaker 2", "segments": [{"start": 10.0, "end": 20.0}]},
+        ])
+
+        characters = [
+            {"character_id": "char_01", "name": "Lina", "speaker_id": "speaker_1", "visual_reference": None, "notes": "Main protagonist"},
+            {"character_id": "char_02", "name": "Marco", "speaker_id": None, "visual_reference": "ref.png", "notes": "Villain"},
+        ]
+        ws.save_characters(characters)
+
+        loaded = ws.load_characters()
+        assert loaded is not None
+        assert len(loaded) == 2
+        assert loaded[0]["character_id"] == "char_01"
+        assert loaded[0]["name"] == "Lina"
+        assert loaded[0]["speaker_id"] == "speaker_1"
+        assert loaded[1]["character_id"] == "char_02"
+        assert loaded[1]["speaker_id"] is None
+        assert ws.has_characters() is True
+
+    def test_characters_persists_metadata_artifacts(self, tmp_path):
+        """After saving characters, metadata.json shows characters artifact."""
+        from madrac.workspace import SharedWorkspace
+
+        ws = _make_job(tmp_path)
+        self._make_speakers(ws, [{"speaker_id": "speaker_0", "name": "Speaker 1", "segments": []}])
+
+        ws.save_characters([{"character_id": "char_01", "name": "Test", "speaker_id": "speaker_0"}])
+
+        meta = ws.load_metadata()
+        assert meta["artifacts"]["characters"] is True
+        assert "characters_json_path" in meta
+        assert meta["character_count"] == 1
+        assert ws.has_characters() is True
+
+    def test_list_characters_empty(self, tmp_path):
+        """List characters when none exist."""
+        from madrac.mcp.tools.recon_characters import list_characters
+
+        ws = _make_job(tmp_path)
+        self._make_speakers(ws, [{"speaker_id": "speaker_0", "name": "S1", "segments": []}])
+
+        tool = list_characters({})
+        result = asyncio.run(tool(job_id=ws.job_id))
+
+        assert "error" not in result
+        assert result["count"] == 0
+        assert result["characters"] == []
+
+    def test_set_character_create(self, tmp_path):
+        """Create a new character without speaker."""
+        from madrac.mcp.tools.recon_characters import set_character, list_characters
+
+        ws = _make_job(tmp_path)
+        self._make_speakers(ws, [{"speaker_id": "speaker_0", "name": "S1", "segments": []}])
+
+        tool = set_character({})
+        result = asyncio.run(tool(job_id=ws.job_id, character_id="char_01", name="Lina"))
+
+        assert result["status"] == "done"
+        assert result["character_id"] == "char_01"
+        assert result["name"] == "Lina"
+        assert result["speaker_id"] is None
+
+        # Verify persisted
+        list_tool = list_characters({})
+        listed = asyncio.run(list_tool(job_id=ws.job_id))
+        assert listed["count"] == 1
+        assert listed["characters"][0]["name"] == "Lina"
+        assert listed["characters"][0]["speaker_id"] is None
+
+    def test_set_character_update(self, tmp_path):
+        """Update existing character preserves speaker_id."""
+        from madrac.mcp.tools.recon_characters import set_character, map_speaker_to_character, list_characters
+
+        ws = _make_job(tmp_path)
+        self._make_speakers(ws, [{"speaker_id": "speaker_0", "name": "S1", "segments": []}])
+
+        # Create character
+        set_tool = set_character({})
+        asyncio.run(set_tool(job_id=ws.job_id, character_id="char_01", name="Lina"))
+
+        # Map speaker to character
+        map_tool = map_speaker_to_character({})
+        asyncio.run(map_tool(job_id=ws.job_id, speaker_id="speaker_0", character_id="char_01"))
+
+        # Update name only (speaker_id should be preserved)
+        result = asyncio.run(set_tool(job_id=ws.job_id, character_id="char_01", name="Lina Updated"))
+
+        assert result["status"] == "done"
+        assert result["name"] == "Lina Updated"
+        assert result["speaker_id"] == "speaker_0"
+
+        # Verify persisted
+        list_tool = list_characters({})
+        listed = asyncio.run(list_tool(job_id=ws.job_id))
+        assert listed["characters"][0]["speaker_id"] == "speaker_0"
+
+    def test_set_character_requires_name(self, tmp_path):
+        """set_character rejects empty name."""
+        from madrac.mcp.tools.recon_characters import set_character
+
+        ws = _make_job(tmp_path)
+        self._make_speakers(ws, [{"speaker_id": "speaker_0", "name": "S1", "segments": []}])
+
+        tool = set_character({})
+        result = asyncio.run(tool(job_id=ws.job_id, character_id="char_01", name=""))
+
+        assert "error" in result
+
+    def test_map_speaker_to_character(self, tmp_path):
+        """Map speaker to character updates both sides."""
+        from madrac.mcp.tools.recon_characters import (
+            set_character, map_speaker_to_character, list_characters
+        )
+
+        ws = _make_job(tmp_path)
+        self._make_speakers(ws, [
+            {"speaker_id": "speaker_0", "name": "Speaker 1", "segments": [{"start": 0, "end": 10}]},
+            {"speaker_id": "speaker_1", "name": "Speaker 2", "segments": [{"start": 10, "end": 20}]},
+        ])
+
+        # Create characters
+        set_tool = set_character({})
+        asyncio.run(set_tool(job_id=ws.job_id, character_id="char_01", name="Lina"))
+        asyncio.run(set_tool(job_id=ws.job_id, character_id="char_02", name="Marco"))
+
+        # Map speaker_0 -> char_01
+        map_tool = map_speaker_to_character({})
+        result = asyncio.run(map_tool(job_id=ws.job_id, speaker_id="speaker_0", character_id="char_01"))
+
+        assert result["status"] == "done"
+        assert result["speaker_id"] == "speaker_0"
+        assert result["character_id"] == "char_01"
+        assert result["character_name"] == "Lina"
+
+        # Verify character has speaker_id
+        list_tool = list_characters({})
+        listed = asyncio.run(list_tool(job_id=ws.job_id))
+        char = next(c for c in listed["characters"] if c["character_id"] == "char_01")
+        assert char["speaker_id"] == "speaker_0"
+
+    def test_map_speaker_reassign(self, tmp_path):
+        """Reassigning speaker updates both characters."""
+        from madrac.mcp.tools.recon_characters import (
+            set_character, map_speaker_to_character, list_characters
+        )
+
+        ws = _make_job(tmp_path)
+        self._make_speakers(ws, [
+            {"speaker_id": "speaker_0", "name": "S1", "segments": []},
+            {"speaker_id": "speaker_1", "name": "S2", "segments": []},
+        ])
+
+        set_tool = set_character({})
+        asyncio.run(set_tool(job_id=ws.job_id, character_id="char_01", name="A"))
+        asyncio.run(set_tool(job_id=ws.job_id, character_id="char_02", name="B"))
+
+        map_tool = map_speaker_to_character({})
+        # Map speaker_0 -> char_01
+        asyncio.run(map_tool(job_id=ws.job_id, speaker_id="speaker_0", character_id="char_01"))
+        # Reassign speaker_0 -> char_02
+        result = asyncio.run(map_tool(job_id=ws.job_id, speaker_id="speaker_0", character_id="char_02"))
+
+        assert result["character_id"] == "char_02"
+
+        # char_01 should have no speaker now
+        list_tool = list_characters({})
+        listed = asyncio.run(list_tool(job_id=ws.job_id))
+        char_a = next(c for c in listed["characters"] if c["character_id"] == "char_01")
+        char_b = next(c for c in listed["characters"] if c["character_id"] == "char_02")
+        assert char_a["speaker_id"] is None
+        assert char_b["speaker_id"] == "speaker_0"
+
+    def test_map_speaker_invalid_speaker(self, tmp_path):
+        """Mapping non-existent speaker fails."""
+        from madrac.mcp.tools.recon_characters import map_speaker_to_character, set_character
+
+        ws = _make_job(tmp_path)
+        self._make_speakers(ws, [{"speaker_id": "speaker_0", "name": "S1", "segments": []}])
+
+        set_tool = set_character({})
+        asyncio.run(set_tool(job_id=ws.job_id, character_id="char_01", name="Lina"))
+
+        map_tool = map_speaker_to_character({})
+        result = asyncio.run(map_tool(job_id=ws.job_id, speaker_id="speaker_99", character_id="char_01"))
+
+        assert "error" in result
+
+    def test_map_speaker_invalid_character(self, tmp_path):
+        """Mapping to non-existent character fails."""
+        from madrac.mcp.tools.recon_characters import map_speaker_to_character, set_character
+
+        ws = _make_job(tmp_path)
+        self._make_speakers(ws, [{"speaker_id": "speaker_0", "name": "S1", "segments": []}])
+
+        map_tool = map_speaker_to_character({})
+        result = asyncio.run(map_tool(job_id=ws.job_id, speaker_id="speaker_0", character_id="char_99"))
+
+        assert "error" in result
+
+    def test_map_speaker_without_speakers_json(self, tmp_path):
+        """Mapping fails if speakers.json missing."""
+        from madrac.mcp.tools.recon_characters import map_speaker_to_character, set_character
+
+        ws = _make_job(tmp_path)
+        # No speakers.json
+
+        set_tool = set_character({})
+        asyncio.run(set_tool(job_id=ws.job_id, character_id="char_01", name="Lina"))
+
+        map_tool = map_speaker_to_character({})
+        result = asyncio.run(map_tool(job_id=ws.job_id, speaker_id="speaker_0", character_id="char_01"))
+
+        assert "error" in result
+
+    def test_character_without_speaker_allowed(self, tmp_path):
+        """Character can exist without speaker assigned."""
+        from madrac.mcp.tools.recon_characters import set_character, list_characters
+
+        ws = _make_job(tmp_path)
+        self._make_speakers(ws, [{"speaker_id": "speaker_0", "name": "S1", "segments": []}])
+
+        set_tool = set_character({})
+        asyncio.run(set_tool(job_id=ws.job_id, character_id="char_01", name="Pre-production"))
+
+        list_tool = list_characters({})
+        listed = asyncio.run(list_tool(job_id=ws.job_id))
+        assert listed["characters"][0]["speaker_id"] is None
+
+    def test_rename_character_preserves_speakers_json(self, tmp_path):
+        """Renaming character does not modify speakers.json."""
+        from madrac.mcp.tools.recon_characters import set_character, list_characters
+
+        ws = _make_job(tmp_path)
+        self._make_speakers(ws, [{"speaker_id": "speaker_0", "name": "Original", "segments": []}])
+
+        set_tool = set_character({})
+        asyncio.run(set_tool(job_id=ws.job_id, character_id="char_01", name="Lina"))
+        asyncio.run(set_tool(job_id=ws.job_id, character_id="char_01", name="Lina Updated"))
+
+        # speakers.json unchanged
+        speakers = json.loads((ws.root / "speakers.json").read_text(encoding="utf-8"))
+        assert speakers["speakers"][0]["name"] == "Original"
+
+        # character name updated
+        list_tool = list_characters({})
+        listed = asyncio.run(list_tool(job_id=ws.job_id))
+        assert listed["characters"][0]["name"] == "Lina Updated"

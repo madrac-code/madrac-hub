@@ -311,6 +311,54 @@ class SharedWorkspace:
         """Check if speaker_segments.json exists in workspace."""
         return (self.root / "speaker_segments.json").exists()
 
+    def has_characters(self) -> bool:
+        """Check if characters.json exists in workspace."""
+        return (self.root / "characters.json").exists()
+
+    def save_characters(self, characters: list[dict[str, Any]]) -> bool:
+        """Save characters.json to workspace.
+        
+        Args:
+            characters: List of character dicts with character_id, name, 
+                       speaker_id (optional), visual_reference, notes.
+        """
+        dest = self.root / "characters.json"
+        try:
+            payload = {
+                "schema_version": "1.0",
+                "job_id": self.job_id,
+                "characters": characters,
+            }
+            with open(dest, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2, ensure_ascii=False)
+            self.update_metadata(
+                artifacts={"characters": True},
+                characters_json_path=str(dest),
+                character_count=len(characters),
+            )
+            logger.info(f"Saved {len(characters)} characters to workspace: {dest}")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to save characters to workspace: {e}")
+            return False
+
+    def load_characters(self) -> Optional[list[dict[str, Any]]]:
+        """Load characters.json from workspace.
+        
+        Returns:
+            List of character dicts or None if file not found.
+        """
+        path = self.root / "characters.json"
+        if not path.exists():
+            return None
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("characters", [])
+        except Exception as e:
+            logger.warning(f"Failed to load characters from workspace: {e}")
+            return None
+
     def load_metadata(self) -> Optional[Dict[str, Any]]:
         """Load metadata.json from workspace.
         

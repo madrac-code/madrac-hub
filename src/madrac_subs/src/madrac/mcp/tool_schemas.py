@@ -445,6 +445,86 @@ MADRAC_TOOL_SCHEMAS.extend([
                 "required": ["job_id"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_characters",
+            "description": "List all characters in a workspace with their current speaker mapping.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "description": "Workspace job ID (sha256-<hex>). "
+                                       "Must have speakers.json"
+                    }
+                },
+                "required": ["job_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "set_character",
+            "description": "Create or update a character (narrative identity). "
+                           "speaker_id is optional and managed via map_speaker_to_character.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "description": "Workspace job ID (sha256-<hex>)"
+                    },
+                    "character_id": {
+                        "type": "string",
+                        "description": "Stable character ID (e.g., char_01)"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Character name (narrative)"
+                    },
+                    "visual_reference": {
+                        "type": ["string", "null"],
+                        "description": "Optional visual reference for future image generation",
+                        "default": None
+                    },
+                    "notes": {
+                        "type": "string",
+                        "description": "Optional free-text notes",
+                        "default": ""
+                    }
+                },
+                "required": ["job_id", "character_id", "name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "map_speaker_to_character",
+            "description": "Map a diarized speaker (acoustic identity) to a character (narrative identity).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "description": "Workspace job ID (sha256-<hex>). "
+                                       "Must have speakers.json and characters.json"
+                    },
+                    "speaker_id": {
+                        "type": "string",
+                        "description": "Speaker ID from diarization (e.g., speaker_0)"
+                    },
+                    "character_id": {
+                        "type": "string",
+                        "description": "Character ID to map to (e.g., char_01)"
+                    }
+                },
+                "required": ["job_id", "speaker_id", "character_id"]
+            }
+        }
     }
 ])
 

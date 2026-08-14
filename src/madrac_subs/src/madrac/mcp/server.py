@@ -37,6 +37,7 @@ from .tools.ui import (
 )
 from .tools.recon import diarize_speakers
 from .tools.recon_map import register as register_recon_map
+from .tools.recon_characters import register as register_recon_characters
 from .resources.queue import get_queue_estado_resource, get_queue_progreso_resource
 from .resources.config import get_config_actual_resource
 from .resources.logs import get_ultimos_logs_resource
@@ -92,6 +93,7 @@ def create_server(app_state: dict[str, Any]) -> FastMCP:
     # RECON tools
     mcp.tool(name="diarize_speakers")(diarize_speakers(_app_state))
     register_recon_map(mcp)
+    register_recon_characters(mcp)
 
     # ── Resources ─────────────────────────────────────────────────
     mcp.resource(
@@ -118,7 +120,7 @@ def create_server(app_state: dict[str, Any]) -> FastMCP:
         description="Last N log entries from ring buffer",
     )(get_ultimos_logs_resource(_app_state))
 
-    logger.info("MADRAC MCP server created (22 tools, 4 resources)")
+    logger.info("MADRAC MCP server created (25 tools, 4 resources)")
     return mcp
 
 

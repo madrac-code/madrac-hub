@@ -193,6 +193,7 @@ class MCPHttpServer:
         )
         from .tools.recon import diarize_speakers
         from .tools.recon_map import map_speakers_to_segments
+        from .tools.recon_characters import list_characters, set_character, map_speaker_to_character
 
         tool_map = {
             "get_queue_status": get_queue_status(self.app_state),
@@ -217,6 +218,9 @@ class MCPHttpServer:
             "get_window_events": get_window_events(self.app_state),
             "diarize_speakers": diarize_speakers(self.app_state),
             "map_speakers_to_segments": map_speakers_to_segments(self.app_state),
+            "list_characters": list_characters(self.app_state),
+            "set_character": set_character(self.app_state),
+            "map_speaker_to_character": map_speaker_to_character(self.app_state),
         }
 
         if name not in tool_map:
