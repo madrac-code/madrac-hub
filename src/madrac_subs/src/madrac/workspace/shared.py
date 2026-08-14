@@ -307,6 +307,10 @@ class SharedWorkspace:
         stems_dir = self.root / "stems"
         return (stems_dir / "vocals.wav").exists() or (stems_dir / "background.wav").exists() or (stems_dir / "no_vocals.wav").exists()
 
+    def has_speaker_segments(self) -> bool:
+        """Check if speaker_segments.json exists in workspace."""
+        return (self.root / "speaker_segments.json").exists()
+
     def load_metadata(self) -> Optional[Dict[str, Any]]:
         """Load metadata.json from workspace.
         

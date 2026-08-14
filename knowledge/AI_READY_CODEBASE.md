@@ -138,6 +138,33 @@ Supabase RLS (ADR-002):
   RLS policies applied but cross-user isolation not tested.
   Do not enable community features publicly until ADR-002 done.
 
+## Testing Patterns (Critical)
+
+**Mocks that skip the real integration path hide exactly the bugs
+that matter most.** Two confirmed cases in this project:
+
+1. **close_window via direct widget call vs MCP tool** — Tests that
+   called `widget.close()` directly on the QWidget bypassed the
+   MCP `close_window` tool and never exercised the `window_closed`
+   event queue in UIManager. Result: the event was lost after
+   close, only caught by real E2E against the built exe.
+
+2. **VoiceEncoder mock vs real resemblyzer API** — Unit tests
+   monkeypatched `_embed_frames` to return synthetic embeddings.
+   The real PyPI resemblyzer 0.1.4 has NO `embed_frames` method
+   (only `embed_utterance`/`embed_speaker`). The bug surfaced
+   only when running the full diarization pipeline against the
+   actual model.
+
+**Rule:** Every external dependency (HTTP tool call, model API,
+system call) must have at least ONE integration test that exercises
+the real path. Mocks are for speed in CI, but the real path must
+be validated in a smoke test (can be manual/E2E, but must exist).
+
+**Rule:** When adding a new tool, write the integration test FIRST
+(against the real component if feasible) — the mock test is the
+second test, not the only one.
+
 ## Pending Work for Future Sessions
 
 HIGH PRIORITY:

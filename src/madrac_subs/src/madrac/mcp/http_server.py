@@ -192,6 +192,7 @@ class MCPHttpServer:
             get_window_events,
         )
         from .tools.recon import diarize_speakers
+        from .tools.recon_map import map_speakers_to_segments
 
         tool_map = {
             "get_queue_status": get_queue_status(self.app_state),
@@ -215,6 +216,7 @@ class MCPHttpServer:
             "list_windows": list_windows(self.app_state),
             "get_window_events": get_window_events(self.app_state),
             "diarize_speakers": diarize_speakers(self.app_state),
+            "map_speakers_to_segments": map_speakers_to_segments(self.app_state),
         }
 
         if name not in tool_map:

@@ -425,6 +425,26 @@ MADRAC_TOOL_SCHEMAS.extend([
                 "required": []
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "map_speakers_to_segments",
+            "description": "Map diarized speakers to subtitle segments by temporal overlap. "
+                           "Produces speaker_segments.json with speaker_id, speaker_name, "
+                           "and confidence per segment.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_id": {
+                        "type": "string",
+                        "description": "Workspace job ID (sha256-<hex>). "
+                                       "Must have both segments.json and speakers.json"
+                    }
+                },
+                "required": ["job_id"]
+            }
+        }
     }
 ])
 
