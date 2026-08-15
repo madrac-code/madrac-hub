@@ -62,11 +62,16 @@ class DubbingManager(QObject):
             if p.exists():
                 return str(p)
             logger.warning("Configured dubs_python_path does not exist: %s", explicit)
-        # 2. Hub venv
-        hub_venv = Path(r"D:\madrac-hub\venv\Scripts\python.exe")
-        if hub_venv.exists():
-            return str(hub_venv)
-        # 3. Current python (always exists)
+        # 2. Side-by-side madrac-dubbing.exe next to MADRAC-SUBS.exe (production)
+        if getattr(sys, "frozen", False):
+            subs_dir = Path(sys.executable).parent
+        else:
+            # Dev mode: SUBS is running from source
+            subs_dir = Path(__file__).resolve().parents[5]
+        dubs_exe = subs_dir / "madrac-dubbing.exe"
+        if dubs_exe.exists():
+            return str(dubs_exe)
+        # 3. Current python (always exists) - dev fallback
         return sys.executable
 
     def _ensure_requests(self):
@@ -87,44 +92,67 @@ class DubbingManager(QObject):
             logger.info("DUBS subprocess already running")
             return True
 
-        python_path = Path(self._dubs_python_path).resolve()
-        base = python_path.parent.parent.parent
+        # 1. Try side-by-side madrac-dubbing.exe next to MADRAC-SUBS.exe (production)
+        # Get the directory containing the SUBS executable
+        if getattr(sys, "frozen", False):
+            subs_dir = Path(sys.executable).parent
+        else:
+            # Dev mode: SUBS is running from source, so manager.py is in src/madrac_subs/src/madrac/dubbing/
+            # Go up to find the subs exe location relative to this file
+            subs_dir = Path(__file__).resolve().parents[5]
+        dubs_exe = subs_dir / "madrac-dubbing.exe"
 
-        # Buscar el directorio raíz de PYTHONPATH donde madrac_dubbing sea importable
-        # Monorepo: PYTHONPATH=.../src/madrac_dubbing/src → package en .../src/madrac_dubbing/src/madrac_dubbing
-        # Standalone: PYTHONPATH=.../src → package en .../src/madrac_dubbing
-        pythonpath_candidates = [
-            base / "src" / "madrac_dubbing" / "src",        # dev: monorepo layout
-            base / "src",                                  # dev: standalone layout
-            base / "opt" / "madrac-hub" / "src" / "madrac_dubbing" / "src",  # AppImage monorepo
-            base / "opt" / "madrac-hub" / "src",            # AppImage standalone
-        ]
+        if dubs_exe.exists():
+            # Production path: use the self-contained DUBS exe directly
+            cmd = [str(dubs_exe), "api", "--port", str(self._port)]
+            cwd = str(dubs_exe.parent)
+            env = os.environ.copy()
+            logger.info("Launching DUBS (side-by-side exe): %s", " ".join(cmd))
+        else:
+            # Dev fallback: use Python + module with PYTHONPATH
+            python_path = Path(self._dubs_python_path).resolve()
+            base = python_path.parent.parent.parent
 
-        src_path = None
-        for pp in pythonpath_candidates:
-            if (pp / "madrac_dubbing").is_dir() or (pp / "madrac_dubbing" / "__init__.py").exists():
-                src_path = pp
-                break
+            pythonpath_candidates = [
+                base / "src" / "madrac_dubbing" / "src",        # dev: monorepo layout
+                base / "src",                                  # dev: standalone layout
+                base / "opt" / "madrac-hub" / "src" / "madrac_dubbing" / "src",  # AppImage monorepo
+                base / "opt" / "madrac-hub" / "src",            # AppImage standalone
+            ]
 
-        if src_path is None:
-            self.health_check_failed.emit(
-                f"madrac_dubbing package not found (tried: {[str(p) for p in pythonpath_candidates]})"
-            )
-            return False
-        # Build minimal env — full copy of os.environ can cause [Errno 22] on Windows
-        _current_pp = os.environ.get("PYTHONPATH", "")
-        _pythonpath = str(src_path)
-        if _current_pp:
-            _pythonpath = f"{_pythonpath}:{_current_pp}"
-        env = {"PYTHONPATH": _pythonpath}
+            src_path = None
+            for pp in pythonpath_candidates:
+                if (pp / "madrac_dubbing").is_dir() or (pp / "madrac_dubbing" / "__init__.py").exists():
+                    src_path = pp
+                    break
+
+            if src_path is None:
+                self.health_check_failed.emit(
+                    f"madrac_dubbing package not found (tried: {[str(p) for p in pythonpath_candidates]})"
+                )
+                return False
+
+            _current_pp = os.environ.get("PYTHONPATH", "")
+            _pythonpath = str(src_path)
+            if _current_pp:
+                _pythonpath = f"{_pythonpath}:{_current_pp}"
+            env = {"PYTHONPATH": _pythonpath}
+            for _k in ("PATH", "LD_LIBRARY_PATH", "SYSTEMROOT", "TEMP", "TMP",
+                       "USERPROFILE", "APPDATA", "LOCALAPPDATA", "COMSPEC", "PATHEXT"):
+                _v = os.environ.get(_k)
+                if _v is not None:
+                    env[_k] = _v
+
+            cmd = [str(python_path), "-m", "madrac_dubbing", "api", "--port", str(self._port)]
+            cwd = str(src_path.parent)
+            logger.info("Launching DUBS (dev fallback): %s", " ".join(cmd))
+
         for _k in ("PATH", "LD_LIBRARY_PATH", "SYSTEMROOT", "TEMP", "TMP",
                    "USERPROFILE", "APPDATA", "LOCALAPPDATA", "COMSPEC", "PATHEXT"):
             _v = os.environ.get(_k)
             if _v is not None:
                 env[_k] = _v
 
-        cmd = [str(python_path), "-m", "madrac_dubbing", "api", "--port", str(self._port)]
-        cwd = str(src_path.parent)
         logger.info("Launching DUBS: %s", " ".join(cmd))
 
         try:
@@ -136,7 +164,7 @@ class DubbingManager(QObject):
                 env=env,
             )
         except FileNotFoundError:
-            self.health_check_failed.emit(f"Python not found: {self._dubs_python_path}")
+            self.health_check_failed.emit(f"Executable not found: {cmd[0]}")
             return False
         except Exception as e:
             logger.error("[DUB] Popen failed: %s", e)
